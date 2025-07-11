@@ -1,5 +1,7 @@
-import { Card, CardContent, Typography, Button, Grid } from '@mui/material'
+import React from 'react'
+import { Card, CardContent, Typography, Button, Box } from '@mui/material'
 import { useGetGiftProductsQuery, useDeleteProductMutation } from '../products/api'
+import styles from './giftList.module.scss' // создай такой css-модуль
 
 export const GiftsList = () => {
   const { data, isLoading } = useGetGiftProductsQuery()
@@ -8,21 +10,23 @@ export const GiftsList = () => {
   if (isLoading) return <p>Загрузка...</p>
 
   return (
-    <Grid container spacing={2}>
-      {data?.map((gift) => (
-        <Grid item xs={12} sm={6} md={4} key={gift.id}>
+    <div className={styles.grid}>
+      {data?.map(gift => (
+        <div key={gift.id} className={styles.card}>
           <Card>
             <CardContent>
               <Typography variant="h6" noWrap>{gift.name}</Typography>
               <Typography>Цена: {gift.price} ₽</Typography>
               <Typography>Остаток: {gift.remains}</Typography>
-              <Button color="error" onClick={() => deleteProduct(gift.id)}>
-                Удалить
-              </Button>
+              <Box sx={{ mt: 1 }}>
+                <Button color="error" onClick={() => deleteProduct(gift.id)}>Удалить</Button>
+              </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </div>
       ))}
-    </Grid>
+    </div>
   )
 }
+
+export default GiftsList
