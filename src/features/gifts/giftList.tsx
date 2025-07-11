@@ -1,4 +1,3 @@
-import React from 'react'
 import { Card, CardContent, Typography, Button, Box } from '@mui/material'
 import { useGetGiftProductsQuery, useDeleteProductMutation } from '../products/api'
 import styles from './giftList.module.scss' // создай такой css-модуль
