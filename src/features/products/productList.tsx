@@ -4,11 +4,11 @@ import {
   Button,
   Box,
 } from '@mui/material'
-import { useGetProductsQuery, useDeleteProductMutation } from './api'
+import { useGetMerchProductsQuery, useDeleteProductMutation } from './api'
 import styles from './productList.module.scss'
 
 export const ProductsList = () => {
-  const { data, isLoading } = useGetProductsQuery()
+  const { data, isLoading } = useGetMerchProductsQuery()
   const [deleteProduct] = useDeleteProductMutation()
 
   if (isLoading) return <p>Загрузка...</p>

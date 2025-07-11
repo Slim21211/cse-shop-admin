@@ -12,7 +12,10 @@ type ProductForm = {
   imageFile: File | null
 }
 
-// Функция для извлечения текста ошибки (как в твоём коде)
+type Props = {
+  isGift: boolean
+}
+
 function extractErrorMessage(e: unknown): string {
   if (
     typeof e === 'object' &&
@@ -28,7 +31,7 @@ function extractErrorMessage(e: unknown): string {
   return String(e)
 }
 
-export const AddProductForm = () => {
+export const AddProductForm = ({ isGift }: Props) => {
   const [form, setForm] = useState<ProductForm>({
     name: '',
     size: '',
@@ -39,7 +42,6 @@ export const AddProductForm = () => {
 
   const [addProduct] = useAddProductMutation()
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,7 +55,6 @@ export const AddProductForm = () => {
 
   const handleSubmit = async () => {
     setErrorMessage(null)
-
     let image_url: string | undefined = undefined
 
     try {
@@ -83,13 +84,11 @@ export const AddProductForm = () => {
         price: Number(form.price),
         remains: Number(form.remains),
         image_url,
+        is_gift: isGift,
       }).unwrap()
 
       setForm({ name: '', size: '', price: '', remains: '', imageFile: null })
-
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
+      if (fileInputRef.current) fileInputRef.current.value = ''
     } catch (e) {
       setErrorMessage('Ошибка добавления товара: ' + extractErrorMessage(e))
     }

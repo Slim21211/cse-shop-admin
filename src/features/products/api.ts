@@ -4,24 +4,63 @@ import { supabase } from '../../lib/supabase'
 export type Product = {
   id: number
   name: string
-  size: string
+  size: string | null
   price: number
   remains: number
-  image_url?: string
+  image_url?: string | null
+  is_gift: boolean
+}
+
+export type OrderItem = {
+  name: string
+  price: number
+  quantity: number
+  product_id: number
+}
+
+export type Order = {
+  id: number
+  user_id: string
+  user_name: string
+  email: string
+  telegram_login?: string
+  items: OrderItem[]
+  total_cost: number
+  created_at: string
 }
 
 export const productsApi = createApi({
   reducerPath: 'productsApi',
   baseQuery: fakeBaseQuery(),
-  tagTypes: ['Product'],
+  tagTypes: ['Product', 'Order'],
   endpoints: (b) => ({
-    getProducts: b.query<Product[], void>({
+    // 🎯 Мерч
+    getMerchProducts: b.query<Product[], void>({
       queryFn: async () => {
-        const { data, error } = await supabase.from('products').select('*')
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('is_gift', false)
+
         return error ? { error } : { data: data as Product[] }
       },
       providesTags: ['Product'],
     }),
+
+    // 🎁 Подарки
+    getGiftProducts: b.query<Product[], void>({
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('is_gift', true)
+
+        return error ? { error } : { data: data as Product[] }
+      },
+      providesTags: ['Product'],
+    }),
+
+    // 🆕 Добавление (is_gift нужно передавать!)
     addProduct: b.mutation<void, Omit<Product, 'id'>>({
       queryFn: async (prod) => {
         const { error } = await supabase.from('products').insert([prod])
@@ -29,6 +68,7 @@ export const productsApi = createApi({
       },
       invalidatesTags: ['Product'],
     }),
+
     deleteProduct: b.mutation<void, number>({
       queryFn: async (id) => {
         const { error } = await supabase.from('products').delete().eq('id', id)
@@ -36,11 +76,26 @@ export const productsApi = createApi({
       },
       invalidatesTags: ['Product'],
     }),
+
+    // 📦 Заказы
+    getOrders: b.query<Order[], void>({
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*')
+          .order('created_at', { ascending: false })
+
+        return error ? { error } : { data: data as Order[] }
+      },
+      providesTags: ['Order'],
+    }),
   }),
 })
 
 export const {
-  useGetProductsQuery,
+  useGetMerchProductsQuery,
+  useGetGiftProductsQuery,
   useAddProductMutation,
   useDeleteProductMutation,
+  useGetOrdersQuery,
 } = productsApi
