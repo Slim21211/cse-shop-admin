@@ -16,7 +16,7 @@ const OrderCard = ({ order, isOpen, toggle }: OrderCardProps) => {
   return (
     <Box mb={2} p={2} border="1px solid #ccc" borderRadius={2}>
       <Box display="flex" justifyContent="space-between" alignItems="center">
-        <Typography variant="h6">Заказ #{order.id}</Typography>
+        <Typography variant="h6">Заказ {order.id}</Typography>
         <IconButton size="small" onClick={toggle}>
           {isOpen ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
         </IconButton>
