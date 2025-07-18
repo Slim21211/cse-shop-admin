@@ -22,8 +22,44 @@ const OrderCard = ({ order, isOpen, toggle }: OrderCardProps) => {
         </IconButton>
       </Box>
       <Typography>Пользователь: {order.user_name}</Typography>
-      <Typography>Email: {order.email}</Typography>
-      <Typography>Телеграм: {order.telegram_login || '-'}</Typography>
+      <Typography>
+        Почта:
+        <a
+          href={`mailto:${order.email}`}
+          style={{
+            textDecoration: 'none',
+            color: '#1976d2', // цвет MUI primary
+            fontWeight: 500,
+          }}
+          onMouseOver={(e) => {
+            (e.target as HTMLAnchorElement).style.textDecoration = 'underline'
+          }}
+          onMouseOut={(e) => {
+            (e.target as HTMLAnchorElement).style.textDecoration = 'none'
+          }}
+        >
+          {` ${order.email}`}
+        </a>
+      </Typography>
+      <Typography>
+        Телеграм:
+        <Box
+          component="a"
+          href={`https://t.me/${order.telegram_login}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          sx={{
+            textDecoration: 'none',
+            color: 'primary.main',
+            fontWeight: 500,
+            '&:hover': {
+              textDecoration: 'underline',
+            },
+          }}
+        >
+          {` @${order.telegram_login}`}
+        </Box>
+      </Typography>
       <Typography>
         Дата: {new Date(order.created_at).toISOString().replace('T', ' ').substring(0, 19)}
       </Typography>
