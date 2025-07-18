@@ -47,6 +47,19 @@ export const productsApi = createApi({
       providesTags: ['Product'],
     }),
 
+    // обновление количества товаров
+    updateProductRemains: b.mutation<void, { id: number; remains: number }>({
+      queryFn: async ({ id, remains }) => {
+        const { error } = await supabase
+          .from('products')
+          .update({ remains })
+          .eq('id', id)
+
+        return error ? { error } : { data: undefined }
+      },
+      invalidatesTags: ['Product'],
+    }),
+
     // 🎁 Подарки
     getGiftProducts: b.query<Product[], void>({
       queryFn: async () => {
@@ -98,4 +111,5 @@ export const {
   useAddProductMutation,
   useDeleteProductMutation,
   useGetOrdersQuery,
+  useUpdateProductRemainsMutation,
 } = productsApi
