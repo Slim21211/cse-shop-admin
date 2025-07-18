@@ -95,8 +95,42 @@ const OrdersTable = () => {
                 </TableCell>
                 <TableCell>{order.id}</TableCell>
                 <TableCell>{order.user_name}</TableCell>
-                <TableCell>{order.email}</TableCell>
-                <TableCell>{order.telegram_login || '-'}</TableCell>
+                <TableCell>
+                  <a
+                    href={`mailto:${order.email}`}
+                    style={{
+                      textDecoration: 'none',
+                      color: '#1976d2', // цвет MUI primary
+                      fontWeight: 500,
+                    }}
+                    onMouseOver={(e) => {
+                      (e.target as HTMLAnchorElement).style.textDecoration = 'underline'
+                    }}
+                    onMouseOut={(e) => {
+                      (e.target as HTMLAnchorElement).style.textDecoration = 'none'
+                    }}
+                  >
+                    {order.email}
+                  </a>
+                </TableCell>
+                <TableCell>
+                  <Box
+                    component="a"
+                    href={`https://t.me/${order.telegram_login}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{
+                      textDecoration: 'none',
+                      color: 'primary.main',
+                      fontWeight: 500,
+                      '&:hover': {
+                        textDecoration: 'underline',
+                      },
+                    }}
+                  >
+                    @{order.telegram_login}
+                  </Box>
+                </TableCell>
                 <TableCell>
                   {new Date(order.created_at).toISOString().replace('T', ' ').substring(0, 19)}
                 </TableCell>
