@@ -1,5 +1,6 @@
 import { Card, CardContent, Typography, Button, Box } from '@mui/material'
 import { useGetGiftProductsQuery, useDeleteProductMutation } from '../products/api'
+import  plural from 'plural-ru'
 import styles from './giftList.module.scss' // создай такой css-модуль
 
 export const GiftsList = () => {
@@ -10,12 +11,14 @@ export const GiftsList = () => {
 
   return (
     <div className={styles.grid}>
-      {data?.map(gift => (
+      {data?.map(gift => {
+        const pluralPrice = plural(gift.price, 'балл', 'балла', 'баллов')
+        return (
         <div key={gift.id} className={styles.card}>
           <Card>
             <CardContent>
               <Typography variant="h6" noWrap>{gift.name}</Typography>
-              <Typography>Цена: {gift.price} ₽</Typography>
+              <Typography>Цена: {gift.price} {pluralPrice}</Typography>
               <Typography>Остаток: {gift.remains}</Typography>
               <Box sx={{ mt: 1 }}>
                 <Button color="error" onClick={() => deleteProduct(gift.id)}>Удалить</Button>
@@ -23,7 +26,7 @@ export const GiftsList = () => {
             </CardContent>
           </Card>
         </div>
-      ))}
+      )})}
     </div>
   )
 }

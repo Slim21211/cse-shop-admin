@@ -14,6 +14,7 @@ import {
   useUpdateProductRemainsMutation,
 } from './api'
 import { supabase } from '../../lib/supabase'
+import  plural from 'plural-ru'
 import styles from './productList.module.scss'
 
 export const ProductsList = () => {
@@ -112,7 +113,9 @@ export const ProductsList = () => {
   return (
     <>
       <div className={styles.grid}>
-        {data?.map((p) => (
+        {data?.map((p) => {
+          const pluralPrice = plural(p.price, 'балл', 'балла', 'баллов')
+          return(
           <div key={p.id} className={styles.card}>
             <div className={styles.imageWrapper}>
               <img
@@ -124,7 +127,7 @@ export const ProductsList = () => {
             <CardContent className={styles.content}>
               <Typography variant="h6" noWrap>{p.name}</Typography>
               <Typography>Размер: {p.size}</Typography>
-              <Typography>Цена: {p.price} ₽</Typography>
+              <Typography>Цена: {p.price} {pluralPrice}</Typography>
               <Typography>Остаток: {p.remains}</Typography>
             </CardContent>
             <Box className={styles.buttonWrapper}>
@@ -132,7 +135,7 @@ export const ProductsList = () => {
               <Button onClick={() => handleOpen(p)}>Изменить</Button>
             </Box>
           </div>
-        ))}
+        )})}
       </div>
 
       <Modal open={open} onClose={handleClose}>

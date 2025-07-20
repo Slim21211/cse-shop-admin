@@ -158,7 +158,7 @@ const OrdersTable = () => {
                             return (
                               <TableRow key={idx}>
                                 <TableCell>{item.name}</TableCell>
-                                <TableCell>{item.price} ₽</TableCell>
+                                <TableCell>{item.price} {pluralPrice}</TableCell>
                                 <TableCell>{item.quantity}</TableCell>
                                 <TableCell>{item.price * item.quantity} {pluralPrice}</TableCell>
                               </TableRow>
