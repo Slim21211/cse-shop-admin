@@ -48,13 +48,9 @@ export const productsApi = createApi({
     }),
 
     // обновление количества товаров
-    updateProductRemains: b.mutation<void, { id: number; remains: number }>({
-      queryFn: async ({ id, remains }) => {
-        const { error } = await supabase
-          .from('products')
-          .update({ remains })
-          .eq('id', id)
-
+    updateProductRemains: b.mutation<void, Partial<Product> & { id: number }>({
+      queryFn: async ({ id, ...rest }) => {
+        const { error } = await supabase.from('products').update(rest).eq('id', id)
         return error ? { error } : { data: undefined }
       },
       invalidatesTags: ['Product'],
