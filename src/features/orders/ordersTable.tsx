@@ -47,7 +47,7 @@ const OrdersTable = () => {
         'Пользователь': order.user_name,
         'Email': order.email,
         'Телеграм': order.telegram_login ? `@${order.telegram_login}` : '',
-        'Дата заказа': new Date(order.created_at).toLocaleString('ru-RU'),
+        'Дата заказа': new Date(order.created_at).toISOString().replace('T', ' ').substring(0, 19),
         'Товары в заказе': itemsString,
         'Общая сумма': order.total_cost,
         'Количество позиций': order.items.length,
