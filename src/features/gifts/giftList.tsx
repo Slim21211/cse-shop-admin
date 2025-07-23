@@ -1,13 +1,29 @@
-import { Card, CardContent, Typography, Button, Box } from '@mui/material'
+import { Card, CardContent, Typography, Button, Box, CircularProgress } from '@mui/material'
 import { useGetGiftProductsQuery, useDeleteProductMutation } from '../products/api'
 import  plural from 'plural-ru'
-import styles from './giftList.module.scss' // создай такой css-модуль
+import styles from './giftList.module.scss'
 
 export const GiftsList = () => {
   const { data, isLoading } = useGetGiftProductsQuery()
   const [deleteProduct] = useDeleteProductMutation()
 
-  if (isLoading) return <p>Загрузка...</p>
+  if (isLoading) {
+    return (
+      <Box 
+        display="flex" 
+        flexDirection="column" 
+        alignItems="center" 
+        justifyContent="center" 
+        minHeight="300px"
+        gap={2}
+      >
+        <CircularProgress size={48} thickness={4} />
+        <Typography variant="body1" color="text.secondary">
+          Загрузка подарков...
+        </Typography>
+      </Box>
+    )
+  }
 
   return (
     <div className={styles.grid}>

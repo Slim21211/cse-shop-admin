@@ -6,6 +6,7 @@ import {
   Box,
   Modal,
   TextField,
+  CircularProgress,
 } from '@mui/material'
 import { useRef, useState } from 'react'
 import {
@@ -108,7 +109,23 @@ export const ProductsList = () => {
     handleClose()
   }
 
-  if (isLoading) return <p>Загрузка...</p>
+  if (isLoading) {
+    return (
+      <Box 
+        display="flex" 
+        flexDirection="column" 
+        alignItems="center" 
+        justifyContent="center" 
+        minHeight="300px"
+        gap={2}
+      >
+        <CircularProgress size={48} thickness={4} />
+        <Typography variant="body1" color="text.secondary">
+          Загрузка товаров...
+        </Typography>
+      </Box>
+    )
+  }
 
   return (
     <>
