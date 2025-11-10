@@ -22,7 +22,6 @@ interface ExcelRow {
   fullName: string;
   email: string;
   points: number;
-  reason: string;
 }
 
 interface ProcessResult {
@@ -30,7 +29,6 @@ interface ProcessResult {
   fullName: string;
   email: string;
   points: number;
-  reason: string;
   error?: string;
 }
 
@@ -66,7 +64,6 @@ export function PointsUpload() {
           fullName: String(row[0]).trim(),
           email: String(row[1]).trim(),
           points: Number(row[2]) || 0,
-          reason: String(row[3] || '').trim(),
         });
       }
 
@@ -166,7 +163,6 @@ export function PointsUpload() {
                   <TableCell>ФИО</TableCell>
                   <TableCell>Email</TableCell>
                   <TableCell align="right">Баллы</TableCell>
-                  <TableCell>Причина</TableCell>
                   <TableCell>Ошибка</TableCell>
                 </TableRow>
               </TableHead>
@@ -191,7 +187,6 @@ export function PointsUpload() {
                     <TableCell>{result.fullName}</TableCell>
                     <TableCell>{result.email}</TableCell>
                     <TableCell align="right">{result.points}</TableCell>
-                    <TableCell>{result.reason}</TableCell>
                     <TableCell>
                       {result.error && (
                         <Typography variant="body2" color="error">

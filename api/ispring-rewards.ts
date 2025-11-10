@@ -11,7 +11,6 @@ interface ExcelRow {
   fullName: string;
   email: string;
   points: number;
-  reason: string;
 }
 
 interface ProcessResult {
@@ -179,7 +178,6 @@ async function getActiveUsers(token: string): Promise<ISpringUser[]> {
 }
 
 // Начисление баллов пользователю
-// Начисление баллов пользователю
 async function addReward(
   token: string,
   userId: string,
@@ -299,6 +297,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     for (const row of rows) {
       const email = row.email.toLowerCase().trim();
       const user = emailToUser.get(email);
+      const reason = 'KPI';
 
       if (!user) {
         results.push({
@@ -306,20 +305,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           fullName: row.fullName,
           email: row.email,
           points: row.points,
-          reason: row.reason,
+          reason,
           error: 'Пользователь не найден или неактивен',
         });
         continue;
       }
 
       try {
-        await addReward(token, user.userId, row.points, row.reason);
+        await addReward(token, user.userId, row.points, reason);
         results.push({
           success: true,
           fullName: row.fullName,
           email: row.email,
           points: row.points,
-          reason: row.reason,
+          reason,
         });
       } catch (error) {
         results.push({
@@ -327,7 +326,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           fullName: row.fullName,
           email: row.email,
           points: row.points,
-          reason: row.reason,
+          reason,
           error: error instanceof Error ? error.message : 'Неизвестная ошибка',
         });
       }
