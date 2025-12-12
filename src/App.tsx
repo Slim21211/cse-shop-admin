@@ -41,27 +41,43 @@ function App() {
       setUserEmail(email);
       console.log('🔍 Checking admin access for:', email);
 
-      // Проверяем через Supabase API
+      // ИСПРАВЛЕНИЕ: Правильный формат запроса к Supabase
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      console.log('📡 Supabase URL:', supabaseUrl);
+
       const response = await fetch(
-        `${
-          import.meta.env.VITE_SUPABASE_URL
-        }/rest/v1/admins?email=eq.${encodeURIComponent(email)}`,
+        `${supabaseUrl}/rest/v1/admins?email=eq.${encodeURIComponent(
+          email
+        )}&select=*`,
         {
           headers: {
-            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json',
+            Prefer: 'return=representation',
           },
         }
       );
 
+      console.log('📡 Response status:', response.status);
+
       if (!response.ok) {
-        console.error('❌ Failed to check admin status:', response.status);
+        const errorText = await response.text();
+        console.error(
+          '❌ Failed to check admin status:',
+          response.status,
+          errorText
+        );
         setIsAdmin(false);
         setLoading(false);
         return;
       }
 
       const data = await response.json();
+      console.log('📡 Response data:', data);
+
       const isAdminUser = Array.isArray(data) && data.length > 0;
 
       console.log(
@@ -91,7 +107,12 @@ function App() {
           minHeight: '100vh',
         }}
       >
-        <CircularProgress />
+        <Box sx={{ textAlign: 'center' }}>
+          <CircularProgress />
+          <Typography variant="body2" sx={{ mt: 2 }}>
+            Проверка прав доступа...
+          </Typography>
+        </Box>
       </Container>
     );
   }
@@ -106,12 +127,17 @@ function App() {
           <Typography variant="body1">
             {userEmail
               ? `У пользователя ${userEmail} нет прав администратора.`
-              : 'Доступ разрешен только через личный кабинет магазина.'}
+              : 'Не указан email в параметрах URL. Перейдите через личный кабинет магазина.'}
           </Typography>
         </Alert>
         <Typography variant="body2" color="text.secondary">
           Если вы считаете, что это ошибка, обратитесь к администратору системы.
         </Typography>
+        <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+          <Typography variant="caption" color="text.secondary">
+            Откройте консоль разработчика (F12) для просмотра логов отладки.
+          </Typography>
+        </Box>
       </Container>
     );
   }
