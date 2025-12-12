@@ -8,6 +8,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { useState, useEffect } from 'react';
+import { supabase } from './lib/supabase'; // ИСПОЛЬЗУЕМ СУЩЕСТВУЮЩИЙ КЛИЕНТ
 import { AddProductForm } from './features/products/addProductForm.tsx';
 import { ProductsList } from './features/products/productList.tsx';
 import OrdersTable from './features/orders/ordersTable.tsx';
@@ -41,44 +42,23 @@ function App() {
       setUserEmail(email);
       console.log('🔍 Checking admin access for:', email);
 
-      // ИСПРАВЛЕНИЕ: Правильный формат запроса к Supabase
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      // ПРАВИЛЬНО: Используем Supabase клиент
+      const { data, error } = await supabase
+        .from('admins')
+        .select('*')
+        .eq('email', email)
+        .maybeSingle();
 
-      console.log('📡 Supabase URL:', supabaseUrl);
-
-      const response = await fetch(
-        `${supabaseUrl}/rest/v1/admins?email=eq.${encodeURIComponent(
-          email
-        )}&select=*`,
-        {
-          headers: {
-            apikey: supabaseKey,
-            Authorization: `Bearer ${supabaseKey}`,
-            'Content-Type': 'application/json',
-            Prefer: 'return=representation',
-          },
-        }
-      );
-
-      console.log('📡 Response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(
-          '❌ Failed to check admin status:',
-          response.status,
-          errorText
-        );
+      if (error) {
+        console.error('❌ Supabase error:', error);
         setIsAdmin(false);
         setLoading(false);
         return;
       }
 
-      const data = await response.json();
-      console.log('📡 Response data:', data);
+      console.log('📡 Admin check result:', data);
 
-      const isAdminUser = Array.isArray(data) && data.length > 0;
+      const isAdminUser = !!data;
 
       console.log(
         isAdminUser ? '✅ Admin access granted' : '❌ Admin access denied'
