@@ -16,11 +16,17 @@ import { AddGiftForm } from './features/gifts/addGiftForm.tsx';
 import { GiftsList } from './features/gifts/giftList.tsx';
 import { PointsUpload } from './features/points/PointsUpload.tsx';
 
+// Константа для URL личного кабинета
+const ACCOUNT_PAGE_URL = 'https://cse-shop.ru/account';
+
 function App() {
   const [tab, setTab] = useState(0);
+  // Используем `null` как начальное состояние, `undefined` для отсутствия email
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  // Новое состояние для отслеживания необходимости редиректа
+  const [shouldRedirect, setShouldRedirect] = useState(false);
 
   useEffect(() => {
     checkAdminAccess();
@@ -28,21 +34,21 @@ function App() {
 
   const checkAdminAccess = async () => {
     try {
-      // Получаем email из query параметра
       const params = new URLSearchParams(window.location.search);
       const email = params.get('email');
 
       if (!email) {
-        console.error('❌ No email provided in URL');
-        setIsAdmin(false);
+        console.error('❌ No email provided in URL. Redirecting...');
+        // Устанавливаем флаг для редиректа
+        setShouldRedirect(true);
         setLoading(false);
+        // Не продолжаем проверку, если нет email
         return;
       }
 
       setUserEmail(email);
       console.log('🔍 Checking admin access for:', email);
 
-      // ПРАВИЛЬНО: Используем Supabase клиент
       const { data, error } = await supabase
         .from('admins')
         .select('*')
@@ -76,7 +82,17 @@ function App() {
     setTab(newValue);
   };
 
-  if (loading) {
+  // ************ Новая логика редиректа ************
+  useEffect(() => {
+    if (shouldRedirect) {
+      // Выполняем редирект на страницу личного кабинета
+      window.location.href = ACCOUNT_PAGE_URL;
+    }
+  }, [shouldRedirect]);
+  // **********************************************
+
+  if (loading || shouldRedirect) {
+    // Показываем загрузку, пока не решится вопрос с редиректом или правами
     return (
       <Container
         sx={{
@@ -90,13 +106,16 @@ function App() {
         <Box sx={{ textAlign: 'center' }}>
           <CircularProgress />
           <Typography variant="body2" sx={{ mt: 2 }}>
-            Проверка прав доступа...
+            {shouldRedirect
+              ? 'Перенаправление в личный кабинет...'
+              : 'Проверка прав доступа...'}
           </Typography>
         </Box>
       </Container>
     );
   }
 
+  // Оставляем сообщение "Доступ запрещен" для случаев, когда email ЕСТЬ, но он НЕ админский
   if (isAdmin === false) {
     return (
       <Container sx={{ py: 4 }}>
@@ -106,22 +125,18 @@ function App() {
           </Typography>
           <Typography variant="body1">
             {userEmail
-              ? `У пользователя ${userEmail} нет прав администратора.`
-              : 'Не указан email в параметрах URL. Перейдите через личный кабинет магазина.'}
+              ? `У пользователя ${userEmail} нет прав администратора для доступа к этой панели.`
+              : `Непредвиденная ошибка при проверке доступа.`}
           </Typography>
         </Alert>
         <Typography variant="body2" color="text.secondary">
           Если вы считаете, что это ошибка, обратитесь к администратору системы.
         </Typography>
-        <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
-          <Typography variant="caption" color="text.secondary">
-            Откройте консоль разработчика (F12) для просмотра логов отладки.
-          </Typography>
-        </Box>
       </Container>
     );
   }
 
+  // Основной контент панели администратора
   return (
     <Container sx={{ py: 4 }}>
       <Box
