@@ -11,10 +11,11 @@ export type Product = {
   name: string;
   size: string | null;
   price: number;
-  old_price?: number | null; // НОВОЕ
-  description?: string | null; // НОВОЕ
+  old_price?: number | null;
+  description?: string | null;
   remains: number;
-  image_url?: string | null;
+  image_url?: string | null; // Для обратной совместимости
+  image_urls?: string[] | null; // НОВОЕ: массив изображений
   is_gift: boolean;
 };
 

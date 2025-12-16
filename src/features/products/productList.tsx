@@ -7,6 +7,7 @@ import {
   Modal,
   TextField,
   CircularProgress,
+  Chip,
 } from '@mui/material';
 import { useRef, useState } from 'react';
 import {
@@ -29,26 +30,28 @@ export const ProductsList = () => {
     name: '',
     size: '',
     price: '',
-    old_price: '', // НОВОЕ
-    description: '', // НОВОЕ
+    old_price: '',
+    description: '',
     remains: '',
-    imageFile: null as File | null,
-    image_url: '',
+    imageFiles: [] as File[],
+    image_urls: [] as string[],
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleOpen = (product: any) => {
     setSelectedProduct(product);
+    const images =
+      product.image_urls || (product.image_url ? [product.image_url] : []);
     setForm({
       name: product.name,
       size: product.size ?? '',
       price: String(product.price),
-      old_price: product.old_price ? String(product.old_price) : '', // НОВОЕ
-      description: product.description ?? '', // НОВОЕ
+      old_price: product.old_price ? String(product.old_price) : '',
+      description: product.description ?? '',
       remains: String(product.remains),
-      imageFile: null,
-      image_url: product.image_url || '',
+      imageFiles: [],
+      image_urls: images,
     });
     setOpen(true);
   };
@@ -60,11 +63,11 @@ export const ProductsList = () => {
       name: '',
       size: '',
       price: '',
-      old_price: '', // НОВОЕ
-      description: '', // НОВОЕ
+      old_price: '',
+      description: '',
       remains: '',
-      imageFile: null,
-      image_url: '',
+      imageFiles: [],
+      image_urls: [],
     });
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -72,22 +75,44 @@ export const ProductsList = () => {
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    const target = e.target as HTMLInputElement;
-    const { name, value, files } = target;
-    if (name === 'imageFile' && files && files.length > 0) {
-      setForm((prev) => ({ ...prev, imageFile: files[0] }));
-    } else {
-      setForm((prev) => ({ ...prev, [name]: value }));
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const currentTotal = form.image_urls.length + form.imageFiles.length;
+      const available = 3 - currentTotal;
+      const fileArray = Array.from(files).slice(0, available);
+      setForm((prev) => ({
+        ...prev,
+        imageFiles: [...prev.imageFiles, ...fileArray],
+      }));
     }
+  };
+
+  const removeExistingImage = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      image_urls: prev.image_urls.filter((_, i) => i !== index),
+    }));
+  };
+
+  const removeNewImage = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      imageFiles: prev.imageFiles.filter((_, i) => i !== index),
+    }));
   };
 
   const handleSave = async () => {
     if (!selectedProduct) return;
 
-    let image_url = form.image_url;
+    const image_urls = [...form.image_urls];
 
-    if (form.imageFile) {
-      const file = form.imageFile;
+    // Загружаем новые изображения
+    for (const file of form.imageFiles) {
       const filePath = `products/${Date.now()}_${file.name}`;
 
       const { error: uploadError } = await supabase.storage
@@ -103,7 +128,7 @@ export const ProductsList = () => {
         .from('product-images')
         .getPublicUrl(filePath);
 
-      image_url = publicData?.publicUrl || image_url;
+      image_urls.push(publicData?.publicUrl || '');
     }
 
     await updateProduct({
@@ -112,9 +137,9 @@ export const ProductsList = () => {
       name: form.name,
       size: form.size || null,
       price: Number(form.price),
-      old_price: form.old_price ? Number(form.old_price) : null, // НОВОЕ
-      description: form.description || null, // НОВОЕ
-      image_url,
+      old_price: form.old_price ? Number(form.old_price) : null,
+      description: form.description || null,
+      image_urls: image_urls.length > 0 ? image_urls : null,
     });
 
     handleClose();
@@ -144,6 +169,8 @@ export const ProductsList = () => {
         {data?.map((p) => {
           const pluralPrice = plural(p.price, 'балл', 'балла', 'баллов');
           const hasDiscount = !!p.old_price && p.old_price > p.price;
+          const images = p.image_urls || (p.image_url ? [p.image_url] : []);
+          const mainImage = images[0] || '/placeholder.png';
 
           return (
             <div key={p.id} className={styles.card}>
@@ -157,11 +184,10 @@ export const ProductsList = () => {
                     %
                   </div>
                 )}
-                <img
-                  src={p.image_url || '/placeholder.png'}
-                  alt={p.name}
-                  className={styles.image}
-                />
+                {images.length > 1 && (
+                  <div className={styles.imageCount}>{images.length} фото</div>
+                )}
+                <img src={mainImage} alt={p.name} className={styles.image} />
               </div>
               <CardContent className={styles.content}>
                 <Typography variant="h6" noWrap>
@@ -282,26 +308,68 @@ export const ProductsList = () => {
             onChange={handleChange}
           />
 
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box>
+            <Typography variant="subtitle2" gutterBottom>
+              Изображения (макс. 3)
+            </Typography>
+
+            {/* Существующие изображения */}
+            {form.image_urls.length > 0 && (
+              <Box mb={2}>
+                <Typography variant="caption" color="text.secondary">
+                  Текущие изображения:
+                </Typography>
+                <Box display="flex" gap={1} flexWrap="wrap" mt={1}>
+                  {form.image_urls.map((url, index) => (
+                    <Chip
+                      key={index}
+                      label={`Изображение ${index + 1}`}
+                      onDelete={() => removeExistingImage(index)}
+                      sx={{ maxWidth: 150 }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+            )}
+
+            {/* Новые изображения */}
+            {form.imageFiles.length > 0 && (
+              <Box mb={2}>
+                <Typography variant="caption" color="text.secondary">
+                  Новые изображения:
+                </Typography>
+                <Box display="flex" gap={1} flexWrap="wrap" mt={1}>
+                  {form.imageFiles.map((file, index) => (
+                    <Chip
+                      key={index}
+                      label={file.name}
+                      onDelete={() => removeNewImage(index)}
+                      color="primary"
+                      sx={{ maxWidth: 150 }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+            )}
+
             <Button
               variant="outlined"
               onClick={() => fileInputRef.current?.click()}
+              disabled={form.image_urls.length + form.imageFiles.length >= 3}
             >
-              Заменить изображение
+              Добавить изображения
             </Button>
             <input
               type="file"
-              name="imageFile"
               accept="image/*"
-              onChange={handleChange}
+              onChange={handleFileChange}
               ref={fileInputRef}
               style={{ display: 'none' }}
+              multiple
             />
-            {form.imageFile && (
-              <Typography variant="caption" noWrap maxWidth={200}>
-                {form.imageFile.name}
-              </Typography>
-            )}
+            <Typography variant="caption" display="block" mt={1}>
+              {form.image_urls.length + form.imageFiles.length}/3 изображений
+            </Typography>
           </Box>
 
           <Box display="flex" gap={2}>

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Button, TextField, Box, Typography } from '@mui/material';
+import { Button, TextField, Box, Typography, Chip } from '@mui/material';
 import { useState, useRef } from 'react';
 import { useAddProductMutation } from './api';
 import { supabase } from '../../lib/supabase';
@@ -8,10 +8,10 @@ type ProductForm = {
   name: string;
   size: string;
   price: string;
-  old_price: string; // НОВОЕ
-  description: string; // НОВОЕ
+  old_price: string;
+  description: string;
   remains: string;
-  imageFile: File | null;
+  imageFiles: File[]; // ИЗМЕНЕНО: массив файлов
 };
 
 type Props = {
@@ -38,10 +38,10 @@ export const AddProductForm = ({ isGift }: Props) => {
     name: '',
     size: '',
     price: '',
-    old_price: '', // НОВОЕ
-    description: '', // НОВОЕ
+    old_price: '',
+    description: '',
     remains: '',
-    imageFile: null,
+    imageFiles: [], // ИЗМЕНЕНО
   });
 
   const [addProduct] = useAddProductMutation();
@@ -52,21 +52,32 @@ export const AddProductForm = ({ isGift }: Props) => {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const target = e.target as HTMLInputElement;
-    const { name, value, files } = target;
-    if (name === 'imageFile' && files && files.length > 0) {
-      setForm((prev) => ({ ...prev, imageFile: files[0] }));
-    } else {
-      setForm((prev) => ({ ...prev, [name]: value }));
+    const { name, value } = target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const fileArray = Array.from(files).slice(0, 3); // Максимум 3 изображения
+      setForm((prev) => ({ ...prev, imageFiles: fileArray }));
     }
+  };
+
+  const removeImage = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      imageFiles: prev.imageFiles.filter((_, i) => i !== index),
+    }));
   };
 
   const handleSubmit = async () => {
     setErrorMessage(null);
-    let image_url: string | undefined = undefined;
+    const image_urls: string[] = [];
 
     try {
-      if (form.imageFile) {
-        const file = form.imageFile;
+      // Загружаем все изображения
+      for (const file of form.imageFiles) {
         const filePath = `products/${Date.now()}_${file.name}`;
 
         const uploadResult = await supabase.storage
@@ -84,17 +95,17 @@ export const AddProductForm = ({ isGift }: Props) => {
           .from('product-images')
           .getPublicUrl(filePath);
 
-        image_url = publicUrlResult.data.publicUrl;
+        image_urls.push(publicUrlResult.data.publicUrl);
       }
 
       await addProduct({
         name: form.name,
         size: form.size || null,
         price: Number(form.price),
-        old_price: form.old_price ? Number(form.old_price) : null, // НОВОЕ
-        description: form.description || null, // НОВОЕ
+        old_price: form.old_price ? Number(form.old_price) : null,
+        description: form.description || null,
         remains: Number(form.remains),
-        image_url,
+        image_urls: image_urls.length > 0 ? image_urls : null, // ИЗМЕНЕНО
         is_gift: isGift,
       }).unwrap();
 
@@ -102,10 +113,10 @@ export const AddProductForm = ({ isGift }: Props) => {
         name: '',
         size: '',
         price: '',
-        old_price: '', // НОВОЕ
-        description: '', // НОВОЕ
+        old_price: '',
+        description: '',
         remains: '',
-        imageFile: null,
+        imageFiles: [],
       });
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (e) {
@@ -170,23 +181,37 @@ export const AddProductForm = ({ isGift }: Props) => {
         onChange={handleChange}
       />
 
-      <Box display="flex" alignItems="center" gap={1}>
-        <Button variant="outlined" onClick={onClickFileButton}>
-          Выбрать изображение
-        </Button>
-        <input
-          type="file"
-          name="imageFile"
-          accept="image/*"
-          onChange={handleChange}
-          ref={fileInputRef}
-          style={{ display: 'none' }}
-        />
-        {form.imageFile && (
-          <Typography variant="caption" noWrap maxWidth={200}>
-            {form.imageFile.name}
-          </Typography>
+      <Box>
+        <Box display="flex" alignItems="center" gap={1} mb={1}>
+          <Button variant="outlined" onClick={onClickFileButton}>
+            Выбрать изображения (макс. 3)
+          </Button>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+            multiple
+          />
+        </Box>
+
+        {form.imageFiles.length > 0 && (
+          <Box display="flex" gap={1} flexWrap="wrap">
+            {form.imageFiles.map((file, index) => (
+              <Chip
+                key={index}
+                label={`${index + 1}. ${file.name}`}
+                onDelete={() => removeImage(index)}
+                sx={{ maxWidth: 200 }}
+              />
+            ))}
+          </Box>
         )}
+
+        <Typography variant="caption" color="text.secondary">
+          {form.imageFiles.length}/3 изображений
+        </Typography>
       </Box>
 
       {errorMessage && <Box color="error.main">{errorMessage}</Box>}
