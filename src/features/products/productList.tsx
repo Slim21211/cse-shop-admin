@@ -320,7 +320,7 @@ export const ProductsList = () => {
                   Текущие изображения:
                 </Typography>
                 <Box display="flex" gap={1} flexWrap="wrap" mt={1}>
-                  {form.image_urls.map((url, index) => (
+                  {form.image_urls.map((_, index) => (
                     <Chip
                       key={index}
                       label={`Изображение ${index + 1}`}
