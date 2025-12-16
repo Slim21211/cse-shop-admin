@@ -1,33 +1,35 @@
-import { createApi, fakeBaseQuery } from '@reduxjs/toolkit/query/react'
-import { supabase } from '../../lib/supabase'
+import { createApi, fakeBaseQuery } from '@reduxjs/toolkit/query/react';
+import { supabase } from '../../lib/supabase';
 
 export type Product = {
-  id: number
-  name: string
-  size: string | null
-  price: number
-  remains: number
-  image_url?: string | null
-  is_gift: boolean
-}
+  id: number;
+  name: string;
+  size: string | null;
+  price: number;
+  old_price?: number | null; // НОВОЕ
+  description?: string | null; // НОВОЕ
+  remains: number;
+  image_url?: string | null;
+  is_gift: boolean;
+};
 
 export type OrderItem = {
-  name: string
-  price: number
-  quantity: number
-  product_id: number
-}
+  name: string;
+  price: number;
+  quantity: number;
+  product_id: number;
+};
 
 export type Order = {
-  id: number
-  user_id: string
-  user_name: string
-  email: string
-  telegram_login?: string
-  items: OrderItem[]
-  total_cost: number
-  created_at: string
-}
+  id: number;
+  user_id: string;
+  user_name: string;
+  email: string;
+  telegram_login?: string;
+  items: OrderItem[];
+  total_cost: number;
+  created_at: string;
+};
 
 export const productsApi = createApi({
   reducerPath: 'productsApi',
@@ -40,9 +42,9 @@ export const productsApi = createApi({
         const { data, error } = await supabase
           .from('products')
           .select('*')
-          .eq('is_gift', false)
+          .eq('is_gift', false);
 
-        return error ? { error } : { data: data as Product[] }
+        return error ? { error } : { data: data as Product[] };
       },
       providesTags: ['Product'],
     }),
@@ -50,8 +52,11 @@ export const productsApi = createApi({
     // обновление количества товаров
     updateProductRemains: b.mutation<void, Partial<Product> & { id: number }>({
       queryFn: async ({ id, ...rest }) => {
-        const { error } = await supabase.from('products').update(rest).eq('id', id)
-        return error ? { error } : { data: undefined }
+        const { error } = await supabase
+          .from('products')
+          .update(rest)
+          .eq('id', id);
+        return error ? { error } : { data: undefined };
       },
       invalidatesTags: ['Product'],
     }),
@@ -62,9 +67,9 @@ export const productsApi = createApi({
         const { data, error } = await supabase
           .from('products')
           .select('*')
-          .eq('is_gift', true)
+          .eq('is_gift', true);
 
-        return error ? { error } : { data: data as Product[] }
+        return error ? { error } : { data: data as Product[] };
       },
       providesTags: ['Product'],
     }),
@@ -72,16 +77,16 @@ export const productsApi = createApi({
     // 🆕 Добавление (is_gift нужно передавать!)
     addProduct: b.mutation<void, Omit<Product, 'id'>>({
       queryFn: async (prod) => {
-        const { error } = await supabase.from('products').insert([prod])
-        return error ? { error } : { data: undefined }
+        const { error } = await supabase.from('products').insert([prod]);
+        return error ? { error } : { data: undefined };
       },
       invalidatesTags: ['Product'],
     }),
 
     deleteProduct: b.mutation<void, number>({
       queryFn: async (id) => {
-        const { error } = await supabase.from('products').delete().eq('id', id)
-        return error ? { error } : { data: undefined }
+        const { error } = await supabase.from('products').delete().eq('id', id);
+        return error ? { error } : { data: undefined };
       },
       invalidatesTags: ['Product'],
     }),
@@ -92,14 +97,14 @@ export const productsApi = createApi({
         const { data, error } = await supabase
           .from('orders')
           .select('*')
-          .order('created_at', { ascending: false })
+          .order('created_at', { ascending: false });
 
-        return error ? { error } : { data: data as Order[] }
+        return error ? { error } : { data: data as Order[] };
       },
       providesTags: ['Order'],
     }),
   }),
-})
+});
 
 export const {
   useGetMerchProductsQuery,
@@ -108,4 +113,4 @@ export const {
   useDeleteProductMutation,
   useGetOrdersQuery,
   useUpdateProductRemainsMutation,
-} = productsApi
+} = productsApi;
