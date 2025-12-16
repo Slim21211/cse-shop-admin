@@ -182,9 +182,16 @@ export const ProductsList = () => {
                   </Typography>
                 )}
                 <Typography>Размер: {p.size}</Typography>
-                <Box display="flex" gap={1} alignItems="baseline">
+                <Box
+                  display="flex"
+                  gap={1}
+                  alignItems="baseline"
+                  flexWrap="wrap"
+                >
+                  <Typography component="span">Цена: {p.price}</Typography>
                   {hasDiscount && (
                     <Typography
+                      component="span"
                       variant="body2"
                       color="text.secondary"
                       sx={{ textDecoration: 'line-through' }}
@@ -192,9 +199,7 @@ export const ProductsList = () => {
                       {p.old_price}
                     </Typography>
                   )}
-                  <Typography>
-                    Цена: {p.price} {pluralPrice}
-                  </Typography>
+                  <Typography component="span">{pluralPrice}</Typography>
                 </Box>
                 <Typography>Остаток: {p.remains}</Typography>
               </CardContent>

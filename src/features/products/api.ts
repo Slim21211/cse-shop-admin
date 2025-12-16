@@ -1,5 +1,10 @@
 import { createApi, fakeBaseQuery } from '@reduxjs/toolkit/query/react';
 import { supabase } from '../../lib/supabase';
+import plural from 'plural-ru';
+
+// Экспортируем функцию для использования в компонентах
+export const pluralizePoints = (count: number) =>
+  plural(count, 'балл', 'балла', 'баллов');
 
 export type Product = {
   id: number;
