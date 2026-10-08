@@ -4,7 +4,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { SignJWT, jwtVerify } from 'jose';
 import { createClient } from '@supabase/supabase-js';
 
-const SESSION_TTL_SEC = 8 * 60 * 60; // 8 часов
+const SESSION_TTL_SEC = 2 * 60 * 60; // 8 часов
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST')

@@ -1,5 +1,6 @@
-// src/auth/AuthGate.tsx — ФИНАЛ (без диагностического вывода ошибок).
-// На старте: пропуск из магазина (#t) -> сессия; иначе проверка /api/me; иначе -> в ЛК магазина.
+// АДМИНКА: src/auth/AuthGate.tsx
+// Нет живой сессии -> уходим не на ЛК напрямую, а через хендофф магазина:
+// он проверит живой вход в магазине (залогинен -> вернёт с пропуском; нет -> отправит в ЛК).
 import {
   createContext,
   useContext,
@@ -15,7 +16,8 @@ import {
   Alert,
 } from '@mui/material';
 
-const SHOP_ACCOUNT_URL = 'https://cse-shop.ru/account';
+// Ручка магазина, которая выдаёт пропуск при живом входе (и сама кидает в ЛК, если входа нет).
+const SHOP_HANDOFF_URL = 'https://cse-shop.ru/api/handoff';
 
 export type Role = 'admin' | 'manager';
 interface Auth {
@@ -66,7 +68,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
           }
         }
 
-        // 2) есть ли рабочая сессия
+        // 2) есть ли живая сессия (эндпоинт также проверяет вход в магазине)
         const me = await fetch('/api/me');
         if (me.ok) {
           const data = (await me.json()) as Auth;
@@ -74,11 +76,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
           return;
         }
 
-        // 3) нет — в ЛК магазина (но если был хендофф и всё равно нет сессии — отказ)
+        // 3) нет живой сессии:
+        //    - если только что пришли с пропуском, но всё равно не пустило -> отказ (не админ);
+        //    - иначе уходим на хендофф магазина (он проверит живой вход).
         if (t) {
           if (!cancelled) setState({ status: 'denied' });
         } else {
-          window.location.href = SHOP_ACCOUNT_URL;
+          window.location.href = SHOP_HANDOFF_URL;
         }
       } catch {
         if (!cancelled) setState({ status: 'denied' });
