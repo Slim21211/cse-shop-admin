@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
+import { IndicatorsInfo } from './components/IndicatorsInfo';
 
 import {
   T,
@@ -224,11 +225,22 @@ export function ManagerPanel() {
         К подразделениям
       </Button>
 
-      <Typography
-        sx={{ fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em' }}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 1,
+          flexWrap: 'wrap',
+        }}
       >
-        {selected.name}
-      </Typography>
+        <Typography
+          sx={{ fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em' }}
+        >
+          {selected.name}
+        </Typography>
+        <IndicatorsInfo />
+      </Box>
 
       <BudgetBar
         selected={selected}
