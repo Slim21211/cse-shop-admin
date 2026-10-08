@@ -1,31 +1,55 @@
-// src/features/manager/ManagerPanel.tsx — Этап 5: начисление баллов руководителем.
+// src/features/manager/ManagerPanel.tsx — начисление баллов руководителем (UI-полировка).
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Box,
   Container,
   Typography,
-  Box,
-  Card,
-  CardActionArea,
-  CardContent,
-  CircularProgress,
-  Alert,
-  Chip,
   Button,
-  Checkbox,
-  Select,
-  MenuItem,
   TextField,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  Paper,
+  CircularProgress,
+  Dialog,
+  Drawer,
+  LinearProgress,
   useMediaQuery,
   useTheme,
-  Snackbar,
+  Chip,
 } from '@mui/material';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
+import LockRoundedIcon from '@mui/icons-material/LockRounded';
+import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded';
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 
+/* ─── токены стиля ─────────────────────────────────────────── */
+const T = {
+  font: "'Inter', system-ui, -apple-system, sans-serif",
+  accent: '#4F46E5',
+  accentSoft: '#EEF0FF',
+  ink: '#1A1A24',
+  muted: '#6B7280',
+  line: '#E8E8EF',
+  ok: '#16A34A',
+  okSoft: '#E9F8EF',
+  danger: '#DC2626',
+  surface: '#FFFFFF',
+  bg: '#F7F7FB',
+  radius: 14,
+  shadow: '0 1px 2px rgba(16,24,40,.04), 0 6px 20px rgba(16,24,40,.06)',
+};
+function useFont() {
+  useEffect(() => {
+    const id = 'inter-font-mgr';
+    if (document.getElementById(id)) return;
+    const l = document.createElement('link');
+    l.id = id;
+    l.rel = 'stylesheet';
+    l.href =
+      'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap';
+    document.head.appendChild(l);
+  }, []);
+}
+
+/* ─── данные/расчёт ────────────────────────────────────────── */
 interface Department {
   departmentId: string;
   name: string;
@@ -48,7 +72,6 @@ interface Row {
   free: boolean;
   comment: string;
 }
-
 const PRO_POINTS: Record<Pro, number> = { А: 0, Б: 5, В: 10, Г: 15, Д: 20 };
 const PRO_OPTS: Pro[] = ['А', 'Б', 'В', 'Г', 'Д'];
 const emptyRow = (): Row => ({
@@ -64,7 +87,377 @@ const rowPoints = (r: Row) =>
   (r.unknown ? 10 : 0) +
   (r.free ? 10 : 0);
 
+/* ─── мелкие UI-компоненты ─────────────────────────────────── */
+function Pill({
+  active,
+  children,
+  points,
+  onClick,
+  disabled,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+  points?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Box
+      component="button"
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 0.75,
+        cursor: disabled ? 'default' : 'pointer',
+        px: 1.5,
+        py: 0.75,
+        borderRadius: 999,
+        font: 'inherit',
+        fontSize: 14,
+        fontWeight: 600,
+        border: '1.5px solid',
+        transition: 'all .12s ease',
+        whiteSpace: 'nowrap',
+        borderColor: active ? T.accent : T.line,
+        bgcolor: active ? T.accent : 'transparent',
+        color: active ? '#fff' : T.ink,
+        opacity: disabled ? 0.55 : 1,
+        '&:hover': disabled
+          ? {}
+          : {
+              borderColor: T.accent,
+              bgcolor: active ? T.accent : T.accentSoft,
+            },
+      }}
+    >
+      {active && <CheckRoundedIcon sx={{ fontSize: 16 }} />}
+      {children}
+      {points && (
+        <Box component="span" sx={{ fontSize: 12, opacity: 0.8 }}>
+          {points}
+        </Box>
+      )}
+    </Box>
+  );
+}
+function ProGroup({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: Pro;
+  onChange: (p: Pro) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Box
+      sx={{
+        display: 'inline-flex',
+        border: `1.5px solid ${T.line}`,
+        borderRadius: 999,
+        overflow: 'hidden',
+      }}
+    >
+      {PRO_OPTS.map((o) => {
+        const on = value === o;
+        return (
+          <Box
+            key={o}
+            component="button"
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(o)}
+            title={`+${PRO_POINTS[o]}`}
+            sx={{
+              font: 'inherit',
+              fontSize: 14,
+              fontWeight: 600,
+              width: 34,
+              py: 0.6,
+              border: 0,
+              cursor: disabled ? 'default' : 'pointer',
+              bgcolor: on ? T.accent : 'transparent',
+              color: on ? '#fff' : T.muted,
+              opacity: disabled ? 0.55 : 1,
+              '&:hover': disabled
+                ? {}
+                : { bgcolor: on ? T.accent : T.accentSoft },
+            }}
+          >
+            {o}
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
+function Total({ value }: { value: number }) {
+  return (
+    <Box
+      sx={{
+        minWidth: 48,
+        textAlign: 'center',
+        px: 1.25,
+        py: 0.5,
+        borderRadius: 10,
+        fontWeight: 700,
+        fontSize: 15,
+        bgcolor: value > 0 ? T.okSoft : '#F2F2F6',
+        color: value > 0 ? T.ok : T.muted,
+      }}
+    >
+      {value}
+    </Box>
+  );
+}
+
+/* ─── комментарий: модалка (десктоп) / боттом-шит (мобилка) ─── */
+function CommentSheet({
+  open,
+  isMobile,
+  name,
+  initial,
+  onSave,
+  onRemove,
+  onClose,
+}: {
+  open: boolean;
+  isMobile: boolean;
+  name: string;
+  initial: string;
+  onSave: (c: string) => void;
+  onRemove: () => void;
+  onClose: () => void;
+}) {
+  const [val, setVal] = useState(initial);
+  useEffect(() => {
+    if (open) setVal(initial);
+  }, [open, initial]);
+  const body = (
+    <Box sx={{ p: 3, font: T.font }}>
+      <Typography sx={{ fontWeight: 700, fontSize: 18, color: T.ink }}>
+        Свободный показатель
+      </Typography>
+      <Typography sx={{ color: T.muted, fontSize: 14, mb: 2 }}>
+        {name} · +10 баллов
+      </Typography>
+      <TextField
+        autoFocus
+        fullWidth
+        multiline
+        minRows={3}
+        placeholder="За что начисляется — обязательно"
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, font: T.font } }}
+      />
+      <Box sx={{ display: 'flex', gap: 1, mt: 2.5 }}>
+        <Button
+          onClick={onRemove}
+          color="inherit"
+          sx={{ color: T.muted, textTransform: 'none' }}
+        >
+          Убрать
+        </Button>
+        <Box sx={{ flexGrow: 1 }} />
+        <Button
+          onClick={onClose}
+          color="inherit"
+          sx={{ textTransform: 'none' }}
+        >
+          Отмена
+        </Button>
+        <Button
+          variant="contained"
+          disableElevation
+          disabled={!val.trim()}
+          onClick={() => onSave(val.trim())}
+          sx={{ textTransform: 'none', borderRadius: 2, bgcolor: T.accent }}
+        >
+          Сохранить
+        </Button>
+      </Box>
+    </Box>
+  );
+  if (isMobile)
+    return (
+      <Drawer
+        anchor="bottom"
+        open={open}
+        onClose={onClose}
+        PaperProps={{
+          sx: { borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+        }}
+      >
+        {body}
+      </Drawer>
+    );
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: 3 } }}
+    >
+      {body}
+    </Dialog>
+  );
+}
+
+/* ─── модалка отправки: подтверждение → загрузка → итог ────── */
+type SubmitPhase = 'confirm' | 'loading' | 'success' | 'error';
+function SubmitDialog({
+  open,
+  phase,
+  spent,
+  count,
+  result,
+  errorText,
+  onConfirm,
+  onClose,
+}: {
+  open: boolean;
+  phase: SubmitPhase;
+  spent: number;
+  count: number;
+  result?: { sent: number; failed: number };
+  errorText?: string;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog
+      open={open}
+      onClose={phase === 'loading' ? undefined : onClose}
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: 3, font: T.font } }}
+    >
+      <Box sx={{ p: 3.5, textAlign: 'center' }}>
+        {phase === 'confirm' && (
+          <>
+            <Typography
+              sx={{ fontWeight: 700, fontSize: 19, color: T.ink, mb: 1 }}
+            >
+              Начислить баллы?
+            </Typography>
+            <Typography sx={{ color: T.muted, mb: 3 }}>
+              {spent} баллов · {count} сотрудникам. Отменить начисление будет
+              нельзя.
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1.5 }}>
+              <Button
+                fullWidth
+                onClick={onClose}
+                color="inherit"
+                sx={{ textTransform: 'none', borderRadius: 2 }}
+              >
+                Отмена
+              </Button>
+              <Button
+                fullWidth
+                variant="contained"
+                disableElevation
+                onClick={onConfirm}
+                sx={{
+                  textTransform: 'none',
+                  borderRadius: 2,
+                  bgcolor: T.accent,
+                }}
+              >
+                Начислить
+              </Button>
+            </Box>
+          </>
+        )}
+        {phase === 'loading' && (
+          <Box sx={{ py: 2 }}>
+            <CircularProgress sx={{ color: T.accent }} />
+            <Typography sx={{ mt: 2, color: T.muted }}>
+              Начисляем баллы…
+            </Typography>
+          </Box>
+        )}
+        {phase === 'success' && (
+          <>
+            <Box
+              sx={{
+                width: 56,
+                height: 56,
+                borderRadius: '50%',
+                bgcolor: T.okSoft,
+                color: T.ok,
+                display: 'grid',
+                placeItems: 'center',
+                mx: 'auto',
+                mb: 2,
+              }}
+            >
+              <CheckRoundedIcon sx={{ fontSize: 30 }} />
+            </Box>
+            <Typography sx={{ fontWeight: 700, fontSize: 19, color: T.ink }}>
+              Готово
+            </Typography>
+            <Typography sx={{ color: T.muted, mt: 0.5, mb: 3 }}>
+              Начислено {result?.sent ?? 0} сотрудникам
+              {result?.failed ? ` · не удалось: ${result.failed}` : ''}.
+            </Typography>
+            <Button
+              fullWidth
+              variant="contained"
+              disableElevation
+              onClick={onClose}
+              sx={{ textTransform: 'none', borderRadius: 2, bgcolor: T.accent }}
+            >
+              К подразделениям
+            </Button>
+          </>
+        )}
+        {phase === 'error' && (
+          <>
+            <Box
+              sx={{
+                width: 56,
+                height: 56,
+                borderRadius: '50%',
+                bgcolor: '#FDECEC',
+                color: T.danger,
+                display: 'grid',
+                placeItems: 'center',
+                mx: 'auto',
+                mb: 2,
+              }}
+            >
+              <ErrorOutlineRoundedIcon sx={{ fontSize: 30 }} />
+            </Box>
+            <Typography sx={{ fontWeight: 700, fontSize: 19, color: T.ink }}>
+              Не отправилось
+            </Typography>
+            <Typography sx={{ color: T.muted, mt: 0.5, mb: 3 }}>
+              {errorText || 'Попробуйте ещё раз.'}
+            </Typography>
+            <Button
+              fullWidth
+              variant="outlined"
+              onClick={onClose}
+              sx={{ textTransform: 'none', borderRadius: 2 }}
+            >
+              Закрыть
+            </Button>
+          </>
+        )}
+      </Box>
+    </Dialog>
+  );
+}
+
+/* ─── главный компонент ────────────────────────────────────── */
 export function ManagerPanel() {
+  useFont();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -74,9 +467,13 @@ export function ManagerPanel() {
   const [employees, setEmployees] = useState<Employee[] | null>(null);
   const [rows, setRows] = useState<Record<string, Row>>({});
   const [search, setSearch] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
-  const [done, setDone] = useState(false); // отправлено в этом сеансе
+  const [commentFor, setCommentFor] = useState<string | null>(null);
+  const [submit, setSubmit] = useState<{
+    open: boolean;
+    phase: SubmitPhase;
+    result?: { sent: number; failed: number };
+    errorText?: string;
+  }>({ open: false, phase: 'confirm' });
 
   const loadDepartments = async () => {
     try {
@@ -93,10 +490,13 @@ export function ManagerPanel() {
 
   const openDepartment = async (d: Department) => {
     setSelected(d);
-    setEmployees(null);
-    setRows({});
     setSearch('');
-    setDone(d.submittedThisMonth);
+    setRows({});
+    if (d.submittedThisMonth) {
+      setEmployees([]);
+      return;
+    } // залочено — сотрудников не грузим
+    setEmployees(null);
     try {
       const r = await fetch(
         `/api/manager/employees?departmentId=${encodeURIComponent(d.departmentId)}`
@@ -114,7 +514,6 @@ export function ManagerPanel() {
 
   const update = (id: string, patch: Partial<Row>) =>
     setRows((p) => ({ ...p, [id]: { ...p[id], ...patch } }));
-
   const spent = useMemo(
     () => Object.values(rows).reduce((s, r) => s + rowPoints(r), 0),
     [rows]
@@ -123,12 +522,12 @@ export function ManagerPanel() {
   const invalidComment = Object.values(rows).some(
     (r) => r.free && !r.comment.trim()
   );
-  const canSubmit =
-    !done && !submitting && spent > 0 && remaining >= 0 && !invalidComment;
+  const awardCount = Object.values(rows).filter((r) => rowPoints(r) > 0).length;
+  const canSubmit = spent > 0 && remaining >= 0 && !invalidComment;
 
-  const submit = async () => {
+  const doSubmit = async () => {
     if (!selected) return;
-    setSubmitting(true);
+    setSubmit({ open: true, phase: 'loading' });
     try {
       const awards = Object.entries(rows)
         .filter(([, r]) => rowPoints(r) > 0)
@@ -148,316 +547,510 @@ export function ManagerPanel() {
         body: JSON.stringify({ departmentId: selected.departmentId, awards }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        setToast(
-          data.error === 'already submitted this month'
-            ? 'В этом месяце уже начислено'
-            : `Ошибка: ${data.error || res.status}`
+      if (!res.ok)
+        setSubmit({
+          open: true,
+          phase: 'error',
+          errorText:
+            data.error === 'already submitted this month'
+              ? 'В этом месяце по отделу уже начислено.'
+              : `Ошибка: ${data.error || res.status}`,
+        });
+      else {
+        setSubmit({
+          open: true,
+          phase: 'success',
+          result: { sent: data.sent, failed: data.failed },
+        });
+        setDepartments((ds) =>
+          (ds || []).map((d) =>
+            d.departmentId === selected.departmentId
+              ? { ...d, submittedThisMonth: true }
+              : d
+          )
         );
-      } else {
-        setToast(
-          `Отправлено: ${data.sent}${data.failed ? `, с ошибкой: ${data.failed}` : ''}`
-        );
-        setDone(true);
       }
     } catch {
-      setToast('Сеть недоступна, попробуйте ещё раз');
-    } finally {
-      setSubmitting(false);
+      setSubmit({
+        open: true,
+        phase: 'error',
+        errorText: 'Сеть недоступна. Попробуйте ещё раз.',
+      });
+    }
+  };
+  const closeSubmit = () => {
+    const wasSuccess = submit.phase === 'success';
+    setSubmit({ open: false, phase: 'confirm' });
+    if (wasSuccess) {
+      setSelected(null);
+      loadDepartments();
     }
   };
 
-  if (error)
-    return (
-      <Container sx={{ py: 4 }}>
-        <Alert severity="error">{error}</Alert>
+  const page = (children: React.ReactNode) => (
+    <Box sx={{ font: T.font, color: T.ink, bgcolor: T.bg, minHeight: '100vh' }}>
+      <Container maxWidth="md" sx={{ py: { xs: 3, md: 5 } }}>
+        {children}
       </Container>
+    </Box>
+  );
+
+  if (error)
+    return page(
+      <Box sx={{ p: 3, borderRadius: 3, bgcolor: '#FDECEC', color: T.danger }}>
+        {error}
+      </Box>
     );
   if (departments === null)
-    return (
-      <Container sx={{ py: 4, textAlign: 'center' }}>
-        <CircularProgress />
-      </Container>
+    return page(
+      <Box sx={{ textAlign: 'center', py: 8 }}>
+        <CircularProgress sx={{ color: T.accent }} />
+      </Box>
     );
 
-  // --- выбор подразделения ---
+  /* ── список подразделений ── */
   if (!selected) {
-    if (departments.length === 0)
-      return (
-        <Container sx={{ py: 4 }}>
-          <Typography variant="h4" gutterBottom>
-            Начисление баллов
-          </Typography>
-          <Alert severity="info">Нет доступных подразделений.</Alert>
-        </Container>
-      );
-    return (
-      <Container sx={{ py: 4 }}>
-        <Typography variant="h4" gutterBottom>
-          Начисление баллов
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Выберите подразделение.
-        </Typography>
-        <Box
+    return page(
+      <>
+        <Typography
           sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-            gap: 2,
+            fontWeight: 700,
+            fontSize: 28,
+            letterSpacing: '-0.02em',
+            mb: 0.5,
           }}
         >
-          {departments.map((d) => (
-            <Card key={d.departmentId} variant="outlined">
-              <CardActionArea onClick={() => openDepartment(d)}>
-                <CardContent>
-                  <Typography variant="h6">{d.name}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Код: {d.code}
-                  </Typography>
-                  <Box
-                    sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}
+          Начисление баллов
+        </Typography>
+        <Typography sx={{ color: T.muted, mb: 4 }}>
+          Выберите подразделение.
+        </Typography>
+        {departments.length === 0 ? (
+          <Box
+            sx={{
+              p: 3,
+              borderRadius: 3,
+              bgcolor: T.accentSoft,
+              color: T.accent,
+            }}
+          >
+            Нет доступных подразделений.
+          </Box>
+        ) : (
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+              gap: 2,
+            }}
+          >
+            {departments.map((d) => (
+              <Box
+                key={d.departmentId}
+                onClick={() => openDepartment(d)}
+                sx={{
+                  p: 2.5,
+                  borderRadius: `${T.radius}px`,
+                  bgcolor: T.surface,
+                  border: `1px solid ${T.line}`,
+                  boxShadow: T.shadow,
+                  cursor: 'pointer',
+                  transition: 'transform .12s, box-shadow .12s',
+                  '&:hover': {
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 10px 28px rgba(16,24,40,.10)',
+                  },
+                }}
+              >
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'start',
+                    gap: 1,
+                  }}
+                >
+                  <Typography
+                    sx={{ fontWeight: 600, fontSize: 17, lineHeight: 1.3 }}
                   >
-                    <Chip label={`${d.headcount} чел.`} size="small" />
+                    {d.name}
+                  </Typography>
+                  {d.submittedThisMonth && (
                     <Chip
-                      label={`Бюджет ${d.budget}`}
                       size="small"
-                      color="primary"
+                      icon={<CheckRoundedIcon sx={{ fontSize: 15 }} />}
+                      label="начислено"
+                      sx={{
+                        bgcolor: T.okSoft,
+                        color: T.ok,
+                        fontWeight: 600,
+                        '& .MuiChip-icon': { color: T.ok },
+                      }}
                     />
-                    {d.submittedThisMonth && (
-                      <Chip
-                        label="начислено в этом месяце"
-                        size="small"
-                        color="success"
-                      />
-                    )}
+                  )}
+                </Box>
+                <Typography sx={{ color: T.muted, fontSize: 13, mt: 0.5 }}>
+                  Код {d.code}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+                  <Box>
+                    <Typography sx={{ fontSize: 12, color: T.muted }}>
+                      Сотрудников
+                    </Typography>
+                    <Typography sx={{ fontWeight: 700 }}>
+                      {d.headcount}
+                    </Typography>
                   </Box>
-                </CardContent>
-              </CardActionArea>
-            </Card>
-          ))}
-        </Box>
-      </Container>
+                  <Box>
+                    <Typography sx={{ fontSize: 12, color: T.muted }}>
+                      Бюджет
+                    </Typography>
+                    <Typography sx={{ fontWeight: 700, color: T.accent }}>
+                      {d.budget}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        )}
+      </>
     );
   }
 
-  // --- экран начисления ---
+  const back = (
+    <Button
+      startIcon={<ArrowBackRoundedIcon />}
+      onClick={() => {
+        setSelected(null);
+        loadDepartments();
+      }}
+      sx={{
+        textTransform: 'none',
+        color: T.muted,
+        mb: 2,
+        '&:hover': { bgcolor: 'transparent', color: T.ink },
+      }}
+    >
+      К подразделениям
+    </Button>
+  );
+
+  /* ── залоченный отдел (уже начислено) ── */
+  if (selected.submittedThisMonth) {
+    return page(
+      <>
+        {back}
+        <Box
+          sx={{
+            p: 4,
+            borderRadius: `${T.radius}px`,
+            bgcolor: T.surface,
+            border: `1px solid ${T.line}`,
+            boxShadow: T.shadow,
+            textAlign: 'center',
+          }}
+        >
+          <Box
+            sx={{
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              bgcolor: T.okSoft,
+              color: T.ok,
+              display: 'grid',
+              placeItems: 'center',
+              mx: 'auto',
+              mb: 2,
+            }}
+          >
+            <LockRoundedIcon sx={{ fontSize: 28 }} />
+          </Box>
+          <Typography sx={{ fontWeight: 700, fontSize: 20 }}>
+            {selected.name}
+          </Typography>
+          <Typography sx={{ color: T.muted, mt: 1 }}>
+            В этом месяце баллы уже начислены. Следующее начисление — в
+            следующем месяце.
+          </Typography>
+        </Box>
+      </>
+    );
+  }
+
+  /* ── экран начисления ── */
   const filtered = (employees || []).filter((e) =>
     `${e.lastName} ${e.firstName}`
       .toLowerCase()
       .includes(search.trim().toLowerCase())
   );
+  const commentEmp = commentFor
+    ? (employees || []).find((e) => e.ispringUserId === commentFor)
+    : null;
 
-  const Controls = (id: string) => {
+  const controls = (id: string) => {
     const r = rows[id] || emptyRow();
-    return {
-      rez: (
-        <Checkbox
-          checked={r.rez}
-          disabled={done}
-          onChange={(e) => update(id, { rez: e.target.checked })}
-        />
-      ),
-      pro: (
-        <Select
-          size="small"
-          value={r.pro}
-          disabled={done}
-          onChange={(e) => update(id, { pro: e.target.value as Pro })}
+    return (
+      <>
+        <Pill
+          active={r.rez}
+          points="+60"
+          onClick={() => update(id, { rez: !r.rez })}
         >
-          {PRO_OPTS.map((o) => (
-            <MenuItem key={o} value={o}>
-              {o} (+{PRO_POINTS[o]})
-            </MenuItem>
-          ))}
-        </Select>
-      ),
-      unknown: (
-        <Checkbox
-          checked={r.unknown}
-          disabled={done}
-          onChange={(e) => update(id, { unknown: e.target.checked })}
-        />
-      ),
-      free: (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Checkbox
-            checked={r.free}
-            disabled={done}
-            onChange={(e) => update(id, { free: e.target.checked })}
-          />
-          {r.free && (
-            <TextField
-              size="small"
-              placeholder="Комментарий (обязательно)"
-              value={r.comment}
-              error={!r.comment.trim()}
-              disabled={done}
-              onChange={(e) => update(id, { comment: e.target.value })}
-              sx={{ minWidth: 180 }}
-            />
-          )}
-        </Box>
-      ),
-      total: <b>{rowPoints(r)}</b>,
-    };
+          Результат
+        </Pill>
+        <ProGroup value={r.pro} onChange={(p) => update(id, { pro: p })} />
+        <Pill
+          active={r.unknown}
+          points="+10"
+          onClick={() => update(id, { unknown: !r.unknown })}
+        >
+          Благодарности
+        </Pill>
+        <Pill
+          active={r.free}
+          points="+10"
+          onClick={() => {
+            if (r.free)
+              setCommentFor(id); // редактировать комментарий
+            else {
+              update(id, { free: true });
+              setCommentFor(id);
+            }
+          }}
+        >
+          Свободный{r.free && r.comment ? ' ✎' : ''}
+        </Pill>
+        <Total value={rowPoints(r)} />
+      </>
+    );
   };
 
-  return (
-    <Container sx={{ py: 4 }}>
-      <Button
-        onClick={() => {
-          setSelected(null);
-          loadDepartments();
-        }}
-        sx={{ mb: 2 }}
+  return page(
+    <>
+      {back}
+      <Typography
+        sx={{ fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em' }}
       >
-        ← К подразделениям
-      </Button>
-      <Typography variant="h5" gutterBottom>
         {selected.name}
       </Typography>
 
       {/* липкая плашка бюджета */}
-      <Paper
-        elevation={2}
+      <Box
         sx={{
           position: 'sticky',
-          top: 0,
-          zIndex: 5,
-          p: 1.5,
-          mb: 2,
-          display: 'flex',
-          gap: 2,
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          bgcolor: remaining < 0 ? 'error.light' : undefined,
+          top: 12,
+          zIndex: 10,
+          mt: 2,
+          mb: 3,
+          p: 2,
+          borderRadius: `${T.radius}px`,
+          bgcolor: T.surface,
+          border: `1px solid ${T.line}`,
+          boxShadow: T.shadow,
         }}
       >
-        <Chip label={`Сотрудников: ${selected.headcount}`} />
-        <Chip label={`Бюджет: ${selected.budget}`} color="primary" />
-        <Chip label={`Начислено: ${spent}`} />
-        <Chip
-          label={`Остаток: ${remaining}`}
-          color={remaining < 0 ? 'error' : 'default'}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Box>
+            <Typography sx={{ fontSize: 12, color: T.muted }}>
+              Остаток бюджета
+            </Typography>
+            <Typography
+              sx={{
+                fontWeight: 700,
+                fontSize: 22,
+                color: remaining < 0 ? T.danger : T.ink,
+              }}
+            >
+              {remaining}
+              <Box
+                component="span"
+                sx={{ fontSize: 14, color: T.muted, fontWeight: 500 }}
+              >
+                {' '}
+                / {selected.budget}
+              </Box>
+            </Typography>
+          </Box>
+          <Box sx={{ flexGrow: 1 }} />
+          <Button
+            variant="contained"
+            disableElevation
+            disabled={!canSubmit}
+            onClick={() => setSubmit({ open: true, phase: 'confirm' })}
+            sx={{
+              textTransform: 'none',
+              borderRadius: 2,
+              px: 3,
+              py: 1,
+              fontWeight: 600,
+              bgcolor: T.accent,
+              '&:hover': { bgcolor: '#4338CA' },
+            }}
+          >
+            Начислить · {spent}
+          </Button>
+        </Box>
+        <LinearProgress
+          variant="determinate"
+          value={Math.min(
+            100,
+            selected.budget ? (spent / selected.budget) * 100 : 0
+          )}
+          sx={{
+            mt: 1.5,
+            height: 6,
+            borderRadius: 3,
+            bgcolor: '#EEE',
+            '& .MuiLinearProgress-bar': {
+              bgcolor: remaining < 0 ? T.danger : T.accent,
+            },
+          }}
         />
-        <Box sx={{ flexGrow: 1 }} />
-        <Button variant="contained" onClick={submit} disabled={!canSubmit}>
-          {done ? 'Отправлено' : submitting ? 'Отправка…' : 'Отправить'}
-        </Button>
-      </Paper>
+      </Box>
 
-      {done && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          В этом месяце начисление по отделу отправлено. Повторная отправка
-          кнопкой «Отправить» дошлёт только незавершённые.
-        </Alert>
-      )}
-      {remaining < 0 && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          Превышен бюджет отдела на {Math.abs(remaining)}.
-        </Alert>
-      )}
-      {invalidComment && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          У «свободного» показателя обязателен комментарий.
-        </Alert>
-      )}
-
-      <TextField
-        fullWidth
-        size="small"
-        placeholder="Поиск по фамилии…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        sx={{ mb: 2 }}
-      />
+      {/* поиск */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          px: 2,
+          py: 1,
+          mb: 2,
+          borderRadius: 999,
+          bgcolor: T.surface,
+          border: `1px solid ${T.line}`,
+        }}
+      >
+        <SearchRoundedIcon sx={{ color: T.muted }} />
+        <Box
+          component="input"
+          placeholder="Поиск по фамилии"
+          value={search}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            setSearch(e.target.value)
+          }
+          sx={{
+            flexGrow: 1,
+            border: 0,
+            outline: 0,
+            font: T.font,
+            fontSize: 15,
+            bgcolor: 'transparent',
+            color: T.ink,
+            '&::placeholder': { color: T.muted },
+          }}
+        />
+      </Box>
 
       {employees === null ? (
-        <CircularProgress />
-      ) : isMobile ? (
-        // мобилка — карточки
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {filtered.map((e) => {
-            const c = Controls(e.ispringUserId);
-            return (
-              <Card key={e.ispringUserId} variant="outlined">
-                <CardContent>
-                  <Typography fontWeight={600}>
-                    {e.lastName} {e.firstName}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {e.jobTitle}
-                  </Typography>
-                  <Box
-                    sx={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr auto',
-                      rowGap: 0.5,
-                      alignItems: 'center',
-                      mt: 1,
-                    }}
-                  >
-                    <span>Результативность</span>
-                    {c.rez}
-                    <span>Проактивность</span>
-                    {c.pro}
-                    <span>Благодарности</span>
-                    {c.unknown}
-                    <span>Свободный</span>
-                    <Box>{c.free}</Box>
-                    <span>Итог</span>
-                    {c.total}
-                  </Box>
-                </CardContent>
-              </Card>
-            );
-          })}
+        <Box sx={{ textAlign: 'center', py: 6 }}>
+          <CircularProgress sx={{ color: T.accent }} />
         </Box>
       ) : (
-        // десктоп — таблица
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Сотрудник</TableCell>
-              <TableCell align="center">Результативность</TableCell>
-              <TableCell align="center">Проактивность</TableCell>
-              <TableCell align="center">Благодарности</TableCell>
-              <TableCell>Свободный</TableCell>
-              <TableCell align="center">Итог</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filtered.map((e) => {
-              const c = Controls(e.ispringUserId);
-              return (
-                <TableRow key={e.ispringUserId} hover>
-                  <TableCell>
-                    <b>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+          {filtered.map((e) => {
+            const r = rows[e.ispringUserId] || emptyRow();
+            return (
+              <Box
+                key={e.ispringUserId}
+                sx={{
+                  p: 2,
+                  borderRadius: `${T.radius}px`,
+                  bgcolor: T.surface,
+                  border: `1px solid ${rowPoints(r) > 0 ? T.accent : T.line}`,
+                  boxShadow: T.shadow,
+                  transition: 'border-color .12s',
+                }}
+              >
+                {/* десктоп: имя слева, контролы в ряд; мобилка: имя сверху, контролы ниже */}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexDirection: { xs: 'column', md: 'row' },
+                    alignItems: { xs: 'stretch', md: 'center' },
+                    gap: { xs: 1.5, md: 2 },
+                  }}
+                >
+                  <Box sx={{ minWidth: { md: 220 }, flexShrink: 0 }}>
+                    <Typography sx={{ fontWeight: 600, fontSize: 15.5 }}>
                       {e.lastName} {e.firstName}
-                    </b>
-                    <br />
-                    <Typography variant="caption" color="text.secondary">
+                    </Typography>
+                    <Typography sx={{ color: T.muted, fontSize: 13 }}>
                       {e.jobTitle}
                     </Typography>
-                  </TableCell>
-                  <TableCell align="center">{c.rez}</TableCell>
-                  <TableCell align="center">{c.pro}</TableCell>
-                  <TableCell align="center">{c.unknown}</TableCell>
-                  <TableCell>{c.free}</TableCell>
-                  <TableCell align="center">{c.total}</TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                    {r.free && r.comment && (
+                      <Typography
+                        sx={{ color: T.accent, fontSize: 12.5, mt: 0.25 }}
+                        noWrap
+                      >
+                        «{r.comment}»
+                      </Typography>
+                    )}
+                  </Box>
+                  <Box sx={{ flexGrow: 1 }} />
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    {controls(e.ispringUserId)}
+                  </Box>
+                </Box>
+              </Box>
+            );
+          })}
+          {filtered.length === 0 && (
+            <Typography sx={{ color: T.muted, textAlign: 'center', py: 4 }}>
+              Никого не нашли.
+            </Typography>
+          )}
+        </Box>
       )}
 
-      <Snackbar
-        open={!!toast}
-        autoHideDuration={6000}
-        onClose={() => setToast(null)}
-        message={toast || ''}
+      <CommentSheet
+        open={!!commentFor}
+        isMobile={isMobile}
+        name={
+          commentEmp ? `${commentEmp.lastName} ${commentEmp.firstName}` : ''
+        }
+        initial={commentFor ? rows[commentFor]?.comment || '' : ''}
+        onSave={(c) => {
+          if (commentFor) update(commentFor, { free: true, comment: c });
+          setCommentFor(null);
+        }}
+        onRemove={() => {
+          if (commentFor) update(commentFor, { free: false, comment: '' });
+          setCommentFor(null);
+        }}
+        onClose={() => {
+          if (commentFor && !(rows[commentFor]?.comment || '').trim())
+            update(commentFor, { free: false });
+          setCommentFor(null);
+        }}
       />
-    </Container>
+
+      <SubmitDialog
+        open={submit.open}
+        phase={submit.phase}
+        spent={spent}
+        count={awardCount}
+        result={submit.result}
+        errorText={submit.errorText}
+        onConfirm={doSubmit}
+        onClose={closeSubmit}
+      />
+    </>
   );
 }
