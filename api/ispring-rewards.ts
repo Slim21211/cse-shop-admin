@@ -1,4 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { requireSession } from './_auth.js';
+
 import {
   ISpringUser,
   ISpringUserListResponse,
@@ -264,6 +266,8 @@ async function addReward(
 // -------------------------------------------------------------------------
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (!(await requireSession(req, res, 'admin'))) return;
+
   // Только POST запросы
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });

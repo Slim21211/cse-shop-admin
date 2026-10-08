@@ -17,6 +17,7 @@
     "@reduxjs/toolkit": "^2.8.2",
     "@supabase/supabase-js": "^2.50.2",
     "axios": "^1.13.2",
+    "jose": "^6.2.12",
     "plural-ru": "^2.0.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
