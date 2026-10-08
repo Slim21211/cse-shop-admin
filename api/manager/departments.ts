@@ -1,7 +1,12 @@
-// api/manager/departments.ts — отделы руководителя (разрешённые) + численность + бюджет.
+// api/manager/departments.ts — + признак "уже начислено в этом месяце".
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { jwtVerify } from 'jose';
 import { createClient } from '@supabase/supabase-js';
+
+function monthKey(): string {
+  const d = new Date(Date.now() + 3 * 3600 * 1000); // Москва UTC+3
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -56,6 +61,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       allowedSet.has(d.department_id)
     );
 
+    const month = monthKey();
     const departments = [];
     for (const d of mine as {
       department_id: string;
@@ -68,12 +74,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq('department_id', d.department_id)
         .eq('status', 1);
       const headcount = count || 0;
+
+      const { data: period } = await sb
+        .from('award_periods')
+        .select('id')
+        .eq('department_id', d.department_id)
+        .eq('period_month', month)
+        .maybeSingle();
+
       departments.push({
         departmentId: d.department_id,
         name: d.name,
         code: d.code,
         headcount,
         budget: headcount * 70,
+        submittedThisMonth: !!period,
       });
     }
     return res.status(200).json({ departments });
