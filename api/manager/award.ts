@@ -42,13 +42,6 @@ function monthKey(): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
-function gamiHost(): string {
-  const d = (process.env.ISPRING_API_DOMAIN || '')
-    .replace(/^https?:\/\//, '')
-    .replace(/\/+$/, '');
-  return d.startsWith('api-') ? d : `api-${d}`;
-}
-
 async function ispringToken(): Promise<string> {
   const r = await fetch(`https://${process.env.ISPRING_DOMAIN}/api/v3/token`, {
     method: 'POST',
@@ -68,6 +61,8 @@ async function ispringToken(): Promise<string> {
     );
   return ((await r.json()) as { access_token: string }).access_token;
 }
+// Хост геймификации захардкожен — как в рабочем ispring-rewards.ts (env тут не тот домен).
+const GAMI_HOST = 'api-learn.ispringlearn.ru';
 async function awardOne(
   token: string,
   ispringUserId: string,
@@ -80,14 +75,19 @@ async function awardOne(
     <amount>${amount}</amount>
     <reason>${xmlEscape(reason)}</reason>
 </awardGamificationPoints>`;
-  const r = await fetch(`https://${gamiHost()}/gamification/points/award`, {
+  const r = await fetch(`https://${GAMI_HOST}/gamification/points/award`, {
     method: 'POST',
-    headers: { Authorization: token, 'Content-Type': 'application/xml' },
+    headers: {
+      Authorization: token,
+      'Content-Type': 'application/xml',
+      Accept: 'application/xml',
+      'User-Agent': 'curl/8.0.1',
+    },
     body,
   });
   const text = await r.text();
   if (!r.ok) throw new Error(`award ${r.status}: ${text.slice(0, 200)}`);
-  return `HTTP ${r.status} :: ${text.slice(0, 200) || '(пустое тело)'}`;
+  return `HTTP ${r.status} :: ${text.slice(0, 160) || '(пустое тело)'}`;
 }
 
 async function pushPending(

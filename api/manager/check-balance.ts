@@ -1,13 +1,8 @@
-// api/manager/check-balance.ts — баланс по id (хост геймификации = api-${ISPRING_API_DOMAIN}).
+// api/manager/check-balance.ts — баланс по id (хост геймификации = api-learn.ispringlearn.ru, как в рабочем коде).
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { jwtVerify } from 'jose';
 
-function gamiHost(): string {
-  const d = (process.env.ISPRING_API_DOMAIN || '')
-    .replace(/^https?:\/\//, '')
-    .replace(/\/+$/, '');
-  return d.startsWith('api-') ? d : `api-${d}`;
-}
+const GAMI_HOST = 'api-learn.ispringlearn.ru';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -44,9 +39,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const token = ((await tr.json()) as { access_token: string }).access_token;
 
     const br = await fetch(
-      `https://${gamiHost()}/gamification/points?userIds=${encodeURIComponent(userId)}`,
+      `https://${GAMI_HOST}/gamification/points?userIds=${encodeURIComponent(userId)}`,
       {
-        headers: { Authorization: token, Accept: 'application/xml' },
+        headers: {
+          Authorization: token,
+          Accept: 'application/xml',
+          'User-Agent': 'curl/8.0.1',
+        },
       }
     );
     const raw = await br.text();
@@ -55,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .status(200)
       .json({
         userId,
-        host: gamiHost(),
+        host: GAMI_HOST,
         httpStatus: br.status,
         balance: m ? Number(m[1]) : null,
         raw: raw.slice(0, 400),
