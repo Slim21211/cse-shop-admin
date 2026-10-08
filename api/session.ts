@@ -1,10 +1,9 @@
-// api/session.ts — ФИНАЛ. Самодостаточный (без ./_auth), без утечки деталей ошибок наружу.
-// Меняет handoff-пропуск магазина на сессию админки. Роль решает сервер.
+// api/session.ts — + ветка manager. Самодостаточный.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { SignJWT, jwtVerify } from 'jose';
 import { createClient } from '@supabase/supabase-js';
 
-const SESSION_TTL_SEC = 2 * 60 * 60; // 8 часов
+const SESSION_TTL_SEC = 60 * 60; // 1 час (если у тебя стоит другое значение — оставь своё)
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST')
@@ -14,8 +13,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const token = typeof req.body?.t === 'string' ? req.body.t : '';
     if (!token) return res.status(400).json({ error: 'no token' });
 
-    // 1) проверка пропуска из магазина
-    let userId: string; // это users.id из магазина
+    // 1) пропуск из магазина -> userId (= users.id)
+    let userId: string;
     try {
       const handoffSecret = new TextEncoder().encode(
         process.env.HANDOFF_SECRET!
@@ -30,7 +29,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(401).json({ error: 'invalid handoff token' });
     }
 
-    // 2) роль. Пока только admin по таблице admins (ключ = users.id).
     const sb = createClient(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -38,22 +36,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         auth: { persistSession: false },
       }
     );
-    const { data, error } = await sb
-      .from('admins')
-      .select('user_id')
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (error) {
-      console.error('admins query failed:', error.message);
-      return res.status(500).json({ error: 'server error' });
+
+    let role: 'admin' | 'manager' | null = null;
+
+    // 2a) админ? (admins.user_id = users.id)
+    {
+      const { data, error } = await sb
+        .from('admins')
+        .select('user_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (error) {
+        console.error('admins query failed:', error.message);
+        return res.status(500).json({ error: 'server error' });
+      }
+      if (data) role = 'admin';
     }
-    const role: 'admin' | 'manager' | null = data ? 'admin' : null;
-    // TODO(managers): если не admin — по users.ispring_user_id проверить, руководитель ли он
-    //   (кэш оргструктуры), и тогда role = 'manager'.
+
+    // 2b) иначе руководитель? есть разрешённый отдел, где он supervisor
+    if (!role) {
+      const { data: u, error: ue } = await sb
+        .from('users')
+        .select('ispring_user_id')
+        .eq('id', userId)
+        .maybeSingle();
+      if (ue) {
+        console.error('users lookup failed:', ue.message);
+        return res.status(500).json({ error: 'server error' });
+      }
+      const ispringId = u?.ispring_user_id;
+      if (ispringId) {
+        const { data: deps } = await sb
+          .from('org_departments')
+          .select('department_id')
+          .eq('supervisor_ispring_id', ispringId);
+        const ids = (deps || []).map(
+          (d: { department_id: string }) => d.department_id
+        );
+        if (ids.length) {
+          const { data: allowed } = await sb
+            .from('available_departments')
+            .select('department_id')
+            .in('department_id', ids);
+          if (allowed && allowed.length) role = 'manager';
+        }
+      }
+    }
 
     if (!role) return res.status(403).json({ error: 'no access' });
 
-    // 3) своя сессия админки
+    // 3) сессия
     const sessionSecret = new TextEncoder().encode(
       process.env.ADMIN_SESSION_SECRET!
     );
