@@ -1,6 +1,7 @@
 // АДМИНКА: src/auth/AuthGate.tsx
-// Нет живой сессии -> уходим не на ЛК напрямую, а через хендофф магазина:
-// он проверит живой вход в магазине (залогинен -> вернёт с пропуском; нет -> отправит в ЛК).
+// ЖЁСТКОЕ правило: в админку можно попасть ТОЛЬКО придя с пропуском (#t) из магазина.
+// Нет пропуска в адресе -> немедленный редирект на хендофф магазина, без проверки куки.
+// Магазin сам решит: залогинен -> вернёт с пропуском; нет -> отправит в ЛК.
 import {
   createContext,
   useContext,
@@ -16,7 +17,6 @@ import {
   Alert,
 } from '@mui/material';
 
-// Ручка магазина, которая выдаёт пропуск при живом входе (и сама кидает в ЛК, если входа нет).
 const SHOP_HANDOFF_URL = 'https://cse-shop.ru/api/handoff';
 
 export type Role = 'admin' | 'manager';
@@ -45,45 +45,41 @@ export function AuthGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        // 1) пропуск из магазина в hash (#t=...)
-        const hash = new URLSearchParams(
-          window.location.hash.replace(/^#/, '')
-        );
-        const t = hash.get('t');
-        if (t) {
-          window.history.replaceState(
-            null,
-            '',
-            window.location.pathname + window.location.search
-          );
-          const r = await fetch('/api/session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ t }),
-          });
-          if (!r.ok) {
-            if (!cancelled) setState({ status: 'denied' });
-            return;
-          }
-        }
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const t = hash.get('t');
 
-        // 2) есть ли живая сессия (эндпоинт также проверяет вход в магазине)
-        const me = await fetch('/api/me');
-        if (me.ok) {
-          const data = (await me.json()) as Auth;
-          if (!cancelled) setState({ status: 'authed', auth: data });
+      // Нет пропуска -> ВСЕГДА идём через магазин. Никакого входа по старой куке.
+      if (!t) {
+        window.location.href = SHOP_HANDOFF_URL;
+        return;
+      }
+
+      try {
+        // Пропуск есть -> стираем его из адреса и меняем на сессию.
+        window.history.replaceState(
+          null,
+          '',
+          window.location.pathname + window.location.search
+        );
+
+        const r = await fetch('/api/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ t }),
+        });
+        if (!r.ok) {
+          if (!cancelled) setState({ status: 'denied' });
           return;
         }
 
-        // 3) нет живой сессии:
-        //    - если только что пришли с пропуском, но всё равно не пустило -> отказ (не админ);
-        //    - иначе уходим на хендофф магазина (он проверит живой вход).
-        if (t) {
+        // Берём личность/роль из сессии (кука уже установлена ответом выше).
+        const me = await fetch('/api/me');
+        if (!me.ok) {
           if (!cancelled) setState({ status: 'denied' });
-        } else {
-          window.location.href = SHOP_HANDOFF_URL;
+          return;
         }
+        const data = (await me.json()) as Auth;
+        if (!cancelled) setState({ status: 'authed', auth: data });
       } catch {
         if (!cancelled) setState({ status: 'denied' });
       }
