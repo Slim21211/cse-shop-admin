@@ -10,7 +10,6 @@ import {
 } from '@mui/material';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
-import { IndicatorsInfo } from './components/IndicatorsInfo';
 
 import {
   T,
@@ -25,7 +24,7 @@ import {
 import { DepartmentList } from './components/DepartmentList';
 import { LockedDepartmentView } from './components/LockedDepartmentView';
 import { BudgetBar } from './components/BudgetBar';
-import { EmployeeRow } from './components/EmployeeRow';
+import { EmployeeList } from './components/EmployeeList';
 import { CommentSheet } from './components/CommentSheet';
 import { SubmitDialog } from './components/SubmitDialog';
 
@@ -225,22 +224,11 @@ export function ManagerPanel() {
         К подразделениям
       </Button>
 
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 1,
-          flexWrap: 'wrap',
-        }}
+      <Typography
+        sx={{ fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em' }}
       >
-        <Typography
-          sx={{ fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em' }}
-        >
-          {selected.name}
-        </Typography>
-        <IndicatorsInfo />
-      </Box>
+        {selected.name}
+      </Typography>
 
       <BudgetBar
         selected={selected}
@@ -289,22 +277,12 @@ export function ManagerPanel() {
           <CircularProgress sx={{ color: T.accent }} />
         </Box>
       ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-          {filtered.map((e) => (
-            <EmployeeRow
-              key={e.ispringUserId}
-              employee={e}
-              row={rows[e.ispringUserId] || emptyRow()}
-              onUpdate={(patch) => update(e.ispringUserId, patch)}
-              onOpenComment={() => setCommentFor(e.ispringUserId)}
-            />
-          ))}
-          {filtered.length === 0 && (
-            <Typography sx={{ color: T.muted, textAlign: 'center', py: 4 }}>
-              Никого не нашли.
-            </Typography>
-          )}
-        </Box>
+        <EmployeeList
+          employees={filtered}
+          rows={rows}
+          onUpdate={update}
+          onOpenComment={(id) => setCommentFor(id)}
+        />
       )}
 
       <CommentSheet
