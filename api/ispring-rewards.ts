@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { requireSession } from './_auth.js';
+import { jwtVerify } from 'jose';
 
 import {
   ISpringUser,
@@ -266,7 +266,20 @@ async function addReward(
 // -------------------------------------------------------------------------
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (!(await requireSession(req, res, 'admin'))) return;
+  // --- гард: только залогиненный админ ---
+  try {
+    const t = req.cookies?.['admin-session'];
+    if (!t) return res.status(401).json({ error: 'unauthorized' });
+    const secret = new TextEncoder().encode(
+      process.env.ADMIN_SESSION_SECRET || ''
+    );
+    const { payload } = await jwtVerify(t, secret);
+    if ((payload as { role?: string }).role !== 'admin') {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+  } catch {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
 
   // Только POST запросы
   if (req.method !== 'POST') {

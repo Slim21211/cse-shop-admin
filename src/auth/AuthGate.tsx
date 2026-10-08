@@ -1,4 +1,5 @@
-// src/auth/AuthGate.tsx — с показом реальной причины отказа на экране (временно для отладки).
+// src/auth/AuthGate.tsx — ФИНАЛ (без диагностического вывода ошибок).
+// На старте: пропуск из магазина (#t) -> сессия; иначе проверка /api/me; иначе -> в ЛК магазина.
 import {
   createContext,
   useContext,
@@ -34,7 +35,7 @@ export function useAuth(): Auth {
 type State =
   | { status: 'loading' }
   | { status: 'authed'; auth: Auth }
-  | { status: 'denied'; info?: string };
+  | { status: 'denied' };
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State>({ status: 'loading' });
@@ -43,11 +44,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
+        // 1) пропуск из магазина в hash (#t=...)
         const hash = new URLSearchParams(
           window.location.hash.replace(/^#/, '')
         );
         const t = hash.get('t');
-
         if (t) {
           window.history.replaceState(
             null,
@@ -60,33 +61,27 @@ export function AuthGate({ children }: { children: ReactNode }) {
             body: JSON.stringify({ t }),
           });
           if (!r.ok) {
-            const body = await r.text().catch(() => '');
-            if (!cancelled)
-              setState({
-                status: 'denied',
-                info: `session ${r.status}: ${body}`,
-              });
+            if (!cancelled) setState({ status: 'denied' });
             return;
           }
         }
 
+        // 2) есть ли рабочая сессия
         const me = await fetch('/api/me');
         if (me.ok) {
-          const data = (await me.json()) as { userId: string; role: Role };
+          const data = (await me.json()) as Auth;
           if (!cancelled) setState({ status: 'authed', auth: data });
           return;
         }
 
+        // 3) нет — в ЛК магазина (но если был хендофф и всё равно нет сессии — отказ)
         if (t) {
-          const body = await me.text().catch(() => '');
-          if (!cancelled)
-            setState({ status: 'denied', info: `me ${me.status}: ${body}` });
+          if (!cancelled) setState({ status: 'denied' });
         } else {
           window.location.href = SHOP_ACCOUNT_URL;
         }
-      } catch (e) {
-        if (!cancelled)
-          setState({ status: 'denied', info: `exception: ${String(e)}` });
+      } catch {
+        if (!cancelled) setState({ status: 'denied' });
       }
     })();
     return () => {
@@ -125,20 +120,6 @@ export function AuthGate({ children }: { children: ReactNode }) {
           <Typography variant="body2">
             У вашей учётной записи нет прав для доступа к этой панели.
           </Typography>
-          {state.info && (
-            <Typography
-              variant="caption"
-              component="pre"
-              sx={{
-                mt: 2,
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-all',
-                opacity: 0.8,
-              }}
-            >
-              {state.info}
-            </Typography>
-          )}
         </Alert>
       </Container>
     );
