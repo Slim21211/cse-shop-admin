@@ -1,6 +1,4 @@
-// src/auth/AuthGate.tsx — заменяет старый ?email-гейт.
-// На старте: (1) если в hash пришёл handoff-токен из магазина — меняем его на сессию;
-// (2) иначе проверяем текущую сессию через /api/me; (3) иначе — в ЛК магазина.
+// src/auth/AuthGate.tsx — с показом реальной причины отказа на экране (временно для отладки).
 import {
   createContext,
   useContext,
@@ -16,7 +14,6 @@ import {
   Alert,
 } from '@mui/material';
 
-// Куда отправлять неавторизованных (ЛК магазина). Можно вынести в VITE_SHOP_ACCOUNT_URL.
 const SHOP_ACCOUNT_URL = 'https://cse-shop.ru/account';
 
 export type Role = 'admin' | 'manager';
@@ -37,7 +34,7 @@ export function useAuth(): Auth {
 type State =
   | { status: 'loading' }
   | { status: 'authed'; auth: Auth }
-  | { status: 'denied' };
+  | { status: 'denied'; info?: string };
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State>({ status: 'loading' });
@@ -46,13 +43,12 @@ export function AuthGate({ children }: { children: ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        // 1) Хендофф из магазина: токен в hash (#t=...)
         const hash = new URLSearchParams(
           window.location.hash.replace(/^#/, '')
         );
         const t = hash.get('t');
+
         if (t) {
-          // Сразу стираем токен из адресной строки
           window.history.replaceState(
             null,
             '',
@@ -64,12 +60,16 @@ export function AuthGate({ children }: { children: ReactNode }) {
             body: JSON.stringify({ t }),
           });
           if (!r.ok) {
-            if (!cancelled) setState({ status: 'denied' });
+            const body = await r.text().catch(() => '');
+            if (!cancelled)
+              setState({
+                status: 'denied',
+                info: `session ${r.status}: ${body}`,
+              });
             return;
           }
         }
 
-        // 2) Есть ли рабочая сессия?
         const me = await fetch('/api/me');
         if (me.ok) {
           const data = (await me.json()) as { userId: string; role: Role };
@@ -77,14 +77,16 @@ export function AuthGate({ children }: { children: ReactNode }) {
           return;
         }
 
-        // 3) Нет сессии и не было хендоффа — в ЛК магазина
         if (t) {
-          if (!cancelled) setState({ status: 'denied' });
+          const body = await me.text().catch(() => '');
+          if (!cancelled)
+            setState({ status: 'denied', info: `me ${me.status}: ${body}` });
         } else {
           window.location.href = SHOP_ACCOUNT_URL;
         }
-      } catch {
-        if (!cancelled) setState({ status: 'denied' });
+      } catch (e) {
+        if (!cancelled)
+          setState({ status: 'denied', info: `exception: ${String(e)}` });
       }
     })();
     return () => {
@@ -123,6 +125,20 @@ export function AuthGate({ children }: { children: ReactNode }) {
           <Typography variant="body2">
             У вашей учётной записи нет прав для доступа к этой панели.
           </Typography>
+          {state.info && (
+            <Typography
+              variant="caption"
+              component="pre"
+              sx={{
+                mt: 2,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-all',
+                opacity: 0.8,
+              }}
+            >
+              {state.info}
+            </Typography>
+          )}
         </Alert>
       </Container>
     );
