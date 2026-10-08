@@ -1,12 +1,16 @@
-// api/manager/check-balance.ts — ДИАГНОСТИКА: баланс баллов юзера в iSpring по его id.
-// Открыть в браузере (залогинившись в админке):
-//   https://cse-shop-admin.vercel.app/api/manager/check-balance?userId=<ispring_user_id>
+// api/manager/check-balance.ts — баланс по id (хост геймификации = api-${ISPRING_API_DOMAIN}).
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { jwtVerify } from 'jose';
 
+function gamiHost(): string {
+  const d = (process.env.ISPRING_API_DOMAIN || '')
+    .replace(/^https?:\/\//, '')
+    .replace(/\/+$/, '');
+  return d.startsWith('api-') ? d : `api-${d}`;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // гард: любой залогиненный (admin или manager)
     const tok = req.cookies?.['admin-session'];
     if (!tok) return res.status(401).json({ error: 'unauthorized' });
     try {
@@ -21,7 +25,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const userId = String(req.query.userId || '');
     if (!userId) return res.status(400).json({ error: 'no userId' });
 
-    // токен iSpring (сервер сам, из env админки)
     const tr = await fetch(
       `https://${process.env.ISPRING_DOMAIN}/api/v3/token`,
       {
@@ -37,29 +40,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }),
       }
     );
-    if (!tr.ok)
-      return res
-        .status(500)
-        .json({
-          error: `token ${tr.status}: ${(await tr.text()).slice(0, 150)}`,
-        });
+    if (!tr.ok) return res.status(500).json({ error: `token ${tr.status}` });
     const token = ((await tr.json()) as { access_token: string }).access_token;
 
-    // баланс
     const br = await fetch(
-      `https://${process.env.ISPRING_API_DOMAIN}/gamification/points?userIds=${encodeURIComponent(userId)}`,
+      `https://${gamiHost()}/gamification/points?userIds=${encodeURIComponent(userId)}`,
       {
         headers: { Authorization: token, Accept: 'application/xml' },
       }
     );
     const raw = await br.text();
     const m = raw.match(/<points>(\d+)<\/points>/);
-    return res.status(200).json({
-      userId,
-      httpStatus: br.status,
-      balance: m ? Number(m[1]) : null,
-      raw: raw.slice(0, 500),
-    });
+    return res
+      .status(200)
+      .json({
+        userId,
+        host: gamiHost(),
+        httpStatus: br.status,
+        balance: m ? Number(m[1]) : null,
+        raw: raw.slice(0, 400),
+      });
   } catch (e) {
     return res
       .status(500)

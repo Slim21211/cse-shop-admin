@@ -42,6 +42,13 @@ function monthKey(): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
+function gamiHost(): string {
+  const d = (process.env.ISPRING_API_DOMAIN || '')
+    .replace(/^https?:\/\//, '')
+    .replace(/\/+$/, '');
+  return d.startsWith('api-') ? d : `api-${d}`;
+}
+
 async function ispringToken(): Promise<string> {
   const r = await fetch(`https://${process.env.ISPRING_DOMAIN}/api/v3/token`, {
     method: 'POST',
@@ -66,23 +73,21 @@ async function awardOne(
   ispringUserId: string,
   amount: number,
   reason: string
-) {
+): Promise<string> {
   const body = `<?xml version="1.0" encoding="UTF-8"?>
 <awardGamificationPoints>
     <userId>${ispringUserId}</userId>
     <amount>${amount}</amount>
     <reason>${xmlEscape(reason)}</reason>
 </awardGamificationPoints>`;
-  const r = await fetch(
-    `https://${process.env.ISPRING_API_DOMAIN}/gamification/points/award`,
-    {
-      method: 'POST',
-      headers: { Authorization: token, 'Content-Type': 'application/xml' },
-      body,
-    }
-  );
-  if (!r.ok)
-    throw new Error(`award ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  const r = await fetch(`https://${gamiHost()}/gamification/points/award`, {
+    method: 'POST',
+    headers: { Authorization: token, 'Content-Type': 'application/xml' },
+    body,
+  });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`award ${r.status}: ${text.slice(0, 200)}`);
+  return `HTTP ${r.status} :: ${text.slice(0, 200) || '(пустое тело)'}`;
 }
 
 async function pushPending(
@@ -98,6 +103,7 @@ async function pushPending(
   let sent = 0,
     failed = 0;
   let lastError = '';
+  const ispringResponses: { userId: string; result: string }[] = [];
   if (ents && ents.length) {
     let token: string;
     try {
@@ -111,12 +117,13 @@ async function pushPending(
     }
     for (const e of ents) {
       try {
-        await awardOne(
+        const resp = await awardOne(
           token,
           e.employee_ispring_id,
           e.points,
           buildReason(e.indicators, e.comment)
         );
+        ispringResponses.push({ userId: e.employee_ispring_id, result: resp });
         await sb
           .from('award_entries')
           .update({
@@ -128,6 +135,10 @@ async function pushPending(
         sent++;
       } catch (err) {
         lastError = String((err as Error)?.message || err);
+        ispringResponses.push({
+          userId: e.employee_ispring_id,
+          result: 'ERR ' + lastError,
+        });
         await sb
           .from('award_entries')
           .update({ ispring_status: 'failed', ispring_error: lastError })
@@ -149,6 +160,7 @@ async function pushPending(
       failed,
       remaining: remaining || 0,
       lastError: lastError || undefined,
+      ispringResponses,
     });
 }
 
