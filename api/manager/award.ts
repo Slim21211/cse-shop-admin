@@ -1,9 +1,4 @@
-// api/manager/award.ts — отправка начислений (денежный путь).
-// POST { departmentId, awards: [{ employeeId, indicators:{rez:bool, pro:'А'..'Д', unknown:bool, free:bool}, comment }] }
-// - всё считается и валидируется НА СЕРВЕРЕ (клиенту не верим);
-// - замок «раз в месяц на отдел» = unique(department_id, period_month);
-// - идемпотентность: период уже есть -> дослать только pending/failed, payload игнорируется;
-// - частичный сбой: статус по каждой записи, успешные повторно не шлём.
+// api/manager/award.ts — ДИАГНОСТИЧЕСКАЯ: реальные ошибки уходят в ответ (видно в тосте).
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { jwtVerify } from 'jose';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
@@ -42,7 +37,6 @@ function xmlEscape(s: string) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 }
-// месяц по Москве (UTC+3, без переходов)
 function monthKey(): string {
   const d = new Date(Date.now() + 3 * 3600 * 1000);
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
@@ -61,7 +55,10 @@ async function ispringToken(): Promise<string> {
       client_secret: process.env.ISPRING_CLIENT_SECRET!,
     }),
   });
-  if (!r.ok) throw new Error(`ispring token ${r.status}`);
+  if (!r.ok)
+    throw new Error(
+      `ispring token ${r.status}: ${(await r.text()).slice(0, 120)}`
+    );
   return ((await r.json()) as { access_token: string }).access_token;
 }
 async function awardOne(
@@ -88,7 +85,6 @@ async function awardOne(
     throw new Error(`award ${r.status}: ${(await r.text()).slice(0, 200)}`);
 }
 
-// дослать все pending/failed записи периода
 async function pushPending(
   sb: SupabaseClient,
   periodId: string,
@@ -99,11 +95,20 @@ async function pushPending(
     .select('*')
     .eq('period_id', periodId)
     .in('ispring_status', ['pending', 'failed']);
-
   let sent = 0,
     failed = 0;
+  let lastError = '';
   if (ents && ents.length) {
-    const token = await ispringToken();
+    let token: string;
+    try {
+      token = await ispringToken();
+    } catch (e) {
+      return res
+        .status(500)
+        .json({
+          error: 'ISPRING TOKEN: ' + String((e as Error)?.message || e),
+        });
+    }
     for (const e of ents) {
       try {
         await awardOne(
@@ -122,12 +127,10 @@ async function pushPending(
           .eq('id', e.id);
         sent++;
       } catch (err) {
+        lastError = String((err as Error)?.message || err);
         await sb
           .from('award_entries')
-          .update({
-            ispring_status: 'failed',
-            ispring_error: String((err as Error)?.message || err),
-          })
+          .update({ ispring_status: 'failed', ispring_error: lastError })
           .eq('id', e.id);
         failed++;
       }
@@ -140,14 +143,19 @@ async function pushPending(
     .in('ispring_status', ['pending', 'failed']);
   return res
     .status(200)
-    .json({ ok: failed === 0, sent, failed, remaining: remaining || 0 });
+    .json({
+      ok: failed === 0,
+      sent,
+      failed,
+      remaining: remaining || 0,
+      lastError: lastError || undefined,
+    });
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST')
     return res.status(405).json({ error: 'method not allowed' });
   try {
-    // auth: руководитель
     const tok = req.cookies?.['admin-session'];
     if (!tok) return res.status(401).json({ error: 'unauthorized' });
     let userId: string, role: string | undefined;
@@ -180,31 +188,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       { auth: { persistSession: false } }
     );
 
-    // руководитель отдела?
     const { data: u } = await sb
       .from('users')
       .select('ispring_user_id')
       .eq('id', userId)
       .maybeSingle();
     const ispringId = u?.ispring_user_id;
-    if (!ispringId) return res.status(403).json({ error: 'forbidden' });
+    if (!ispringId)
+      return res.status(403).json({ error: 'forbidden (no ispring id)' });
     const { data: dep } = await sb
       .from('org_departments')
       .select('supervisor_ispring_id')
       .eq('department_id', departmentId)
       .maybeSingle();
     if (!dep || dep.supervisor_ispring_id !== ispringId)
-      return res.status(403).json({ error: 'forbidden' });
+      return res.status(403).json({ error: 'forbidden (not your dept)' });
     const { data: allowed } = await sb
       .from('available_departments')
       .select('department_id')
       .eq('department_id', departmentId)
       .maybeSingle();
-    if (!allowed) return res.status(403).json({ error: 'forbidden' });
+    if (!allowed)
+      return res.status(403).json({ error: 'forbidden (not allowed dept)' });
 
     const month = monthKey();
 
-    // период уже есть -> это ретрай (дослать проблемные), payload игнорируем
     const { data: existing } = await sb
       .from('award_periods')
       .select('id')
@@ -213,7 +221,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .maybeSingle();
     if (existing) return await pushPending(sb, existing.id, res);
 
-    // новая отправка
     if (!Array.isArray(awards) || awards.length === 0)
       return res.status(400).json({ error: 'no awards' });
 
@@ -265,7 +272,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .status(400)
         .json({ error: `over budget: ${spent} > ${budget}` });
 
-    // создать период — замок на месяц
     const { data: period, error: perr } = await sb
       .from('award_periods')
       .insert({
@@ -281,7 +287,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (perr) {
       if ((perr as { code?: string }).code === '23505')
         return res.status(409).json({ error: 'already submitted this month' });
-      throw perr;
+      return res.status(500).json({ error: 'PERIOD INSERT: ' + perr.message });
     }
 
     const rows = entries.map((e) => ({
@@ -290,11 +296,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ispring_status: 'pending',
     }));
     const { error: eerr } = await sb.from('award_entries').insert(rows);
-    if (eerr) throw eerr;
+    if (eerr)
+      return res
+        .status(500)
+        .json({
+          error: 'ENTRIES INSERT: ' + eerr.message,
+          periodId: period.id,
+        });
 
     return await pushPending(sb, period.id, res);
   } catch (e) {
     console.error('award:', e);
-    return res.status(500).json({ error: 'server error' });
+    return res
+      .status(500)
+      .json({ error: 'SERVER: ' + String((e as Error)?.message || e) });
   }
 }
