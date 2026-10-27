@@ -1,16 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Box, Collapse, IconButton, Typography } from '@mui/material'
+import { Box, Button, Collapse, IconButton, Typography } from '@mui/material'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
+import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined'
 import  plural from 'plural-ru'
 
 type OrderCardProps = {
   order: any
   isOpen: boolean
   toggle: () => void
+  onCancel: () => void
 }
 
-const OrderCard = ({ order, isOpen, toggle }: OrderCardProps) => {
+const OrderCard = ({ order, isOpen, toggle, onCancel }: OrderCardProps) => {
   const pluralCommonPrice = plural(order.total_cost, 'балл', 'балла', 'баллов');
   
   return (
@@ -64,6 +66,15 @@ const OrderCard = ({ order, isOpen, toggle }: OrderCardProps) => {
         Дата: {new Date(order.created_at).toISOString().replace('T', ' ').substring(0, 19)}
       </Typography>
       <Typography>Сумма: {order.total_cost} { pluralCommonPrice }</Typography>
+      <Button
+        size="small"
+        color="error"
+        startIcon={<CancelOutlinedIcon />}
+        onClick={onCancel}
+        sx={{ mt: 1 }}
+      >
+        Отменить заказ
+      </Button>
 
       <Collapse in={isOpen} timeout="auto" unmountOnExit>
         <Box mt={2}>

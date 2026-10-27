@@ -250,5 +250,7 @@ async function deleteStale(table) {
   console.log('✅ Готово.');
 })().catch((e) => {
   console.error('\n❌', e.message);
+  console.error('CAUSE:', e.cause); // ← добавить
+  if (e.cause?.cause) console.error('CAUSE2:', e.cause.cause); // ← и это
   process.exit(1);
 });

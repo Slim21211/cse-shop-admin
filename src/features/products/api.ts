@@ -109,6 +109,23 @@ export const productsApi = createApi({
       },
       providesTags: ['Order'],
     }),
+
+    // ❌ Отмена заказа: удаление + возврат баллов (серверная функция, нужен service role и iSpring)
+    cancelOrder: b.mutation<{ refunded: number; warning?: string }, number>({
+      queryFn: async (orderId) => {
+        const r = await fetch('/api/cancel-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId }),
+        });
+        const body = await r.json().catch(() => ({}));
+        return r.ok
+          ? // ok: false при 2xx — заказ отменён частично (остатки не обновились)
+            { data: { refunded: body.refunded ?? 0, warning: body.ok === false ? body.error : undefined } }
+          : { error: { status: r.status, message: body.error || `HTTP ${r.status}` } };
+      },
+      invalidatesTags: ['Order'],
+    }),
   }),
 });
 
@@ -118,5 +135,6 @@ export const {
   useAddProductMutation,
   useDeleteProductMutation,
   useGetOrdersQuery,
+  useCancelOrderMutation,
   useUpdateProductRemainsMutation,
 } = productsApi;

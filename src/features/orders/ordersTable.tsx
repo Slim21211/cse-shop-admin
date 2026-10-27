@@ -19,14 +19,17 @@ import { useState } from 'react'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
+import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined'
 import * as XLSX from 'xlsx'
-import { useGetOrdersQuery } from '../products/api'
+import { useGetOrdersQuery, type Order } from '../products/api'
 import OrderCard from './orderCard'
+import CancelOrderDialog from './cancelOrderDialog'
 import plural from 'plural-ru'
 
 const OrdersTable = () => {
   const { data: orders, error, isLoading } = useGetOrdersQuery()
   const [openRowId, setOpenRowId] = useState<number | null>(null)
+  const [orderToCancel, setOrderToCancel] = useState<Order | null>(null)
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
 
@@ -125,6 +128,7 @@ const OrdersTable = () => {
               order={order}
               isOpen={openRowId === order.id}
               toggle={() => toggleRow(order.id)}
+              onCancel={() => setOrderToCancel(order)}
             />
           ))}
         </Box>
@@ -140,6 +144,7 @@ const OrdersTable = () => {
               <TableCell>Телеграм</TableCell>
               <TableCell>Дата</TableCell>
               <TableCell align="right">Сумма</TableCell>
+              <TableCell />
             </TableRow>
           </TableHead>
           <TableBody>
@@ -203,9 +208,19 @@ const OrdersTable = () => {
                       {new Date(order.created_at).toISOString().replace('T', ' ').substring(0, 19)}
                     </TableCell>
                     <TableCell align="right">{order.total_cost} {pluralCommonPrice}</TableCell>
+                    <TableCell align="right">
+                      <Button
+                        size="small"
+                        color="error"
+                        startIcon={<CancelOutlinedIcon />}
+                        onClick={() => setOrderToCancel(order)}
+                      >
+                        Отменить
+                      </Button>
+                    </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={7}>
+                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={8}>
                       <Collapse in={openRowId === order.id} timeout="auto" unmountOnExit>
                         <Box margin={1}>
                           <Typography variant="subtitle1" gutterBottom>
@@ -244,6 +259,8 @@ const OrdersTable = () => {
           </TableBody>
         </Table>
       )}
+
+      <CancelOrderDialog order={orderToCancel} onClose={() => setOrderToCancel(null)} />
     </Box>
   )
 }
