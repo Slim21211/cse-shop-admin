@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Box, Button, Collapse, IconButton, Typography } from '@mui/material'
+import { Box, Button, Chip, Collapse, IconButton, Typography } from '@mui/material'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined'
@@ -14,11 +14,15 @@ type OrderCardProps = {
 
 const OrderCard = ({ order, isOpen, toggle, onCancel }: OrderCardProps) => {
   const pluralCommonPrice = plural(order.total_cost, 'балл', 'балла', 'баллов');
-  
+  const isCancelled = !!order.cancelled_at
+
   return (
-    <Box mb={2} p={2} border="1px solid #ccc" borderRadius={2}>
+    <Box mb={2} p={2} border="1px solid #ccc" borderRadius={2} sx={isCancelled ? { opacity: 0.6 } : undefined}>
       <Box display="flex" justifyContent="space-between" alignItems="center">
-        <Typography variant="h6">Заказ {order.id}</Typography>
+        <Typography variant="h6">
+          Заказ {order.id}
+          {isCancelled && <Chip label="Отменён" color="error" size="small" sx={{ ml: 1 }} />}
+        </Typography>
         <IconButton size="small" onClick={toggle}>
           {isOpen ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
         </IconButton>
@@ -43,7 +47,7 @@ const OrderCard = ({ order, isOpen, toggle, onCancel }: OrderCardProps) => {
           {` ${order.email}`}
         </a>
       </Typography>
-      <Typography>
+      {order.telegram_login && <Typography>
         Телеграм:
         <Box
           component="a"
@@ -61,12 +65,12 @@ const OrderCard = ({ order, isOpen, toggle, onCancel }: OrderCardProps) => {
         >
           {` @${order.telegram_login}`}
         </Box>
-      </Typography>
+      </Typography>}
       <Typography>
         Дата: {new Date(order.created_at).toISOString().replace('T', ' ').substring(0, 19)}
       </Typography>
       <Typography>Сумма: {order.total_cost} { pluralCommonPrice }</Typography>
-      <Button
+      {!isCancelled && <Button
         size="small"
         color="error"
         startIcon={<CancelOutlinedIcon />}
@@ -74,7 +78,7 @@ const OrderCard = ({ order, isOpen, toggle, onCancel }: OrderCardProps) => {
         sx={{ mt: 1 }}
       >
         Отменить заказ
-      </Button>
+      </Button>}
 
       <Collapse in={isOpen} timeout="auto" unmountOnExit>
         <Box mt={2}>
@@ -82,11 +86,12 @@ const OrderCard = ({ order, isOpen, toggle, onCancel }: OrderCardProps) => {
             Товары:
           </Typography>
           {order.items.map((item: any, idx: number) => {
-            const pluralPrice = plural(item.price * item.quantity, 'балл', 'балла', 'баллов');
+            // item.price в заказе — уже сумма по позиции (цена × количество)
+            const pluralPrice = plural(item.price, 'балл', 'балла', 'баллов');
             return (<Box key={idx} mb={1} pl={1}>
-              <Typography>• {item.name}</Typography>
+              <Typography>• {item.name} × {item.quantity}</Typography>
               <Typography variant="body2">
-                Цена: {item.price * item.quantity} {pluralPrice}
+                Цена: {item.price} {pluralPrice}
               </Typography>
             </Box>)
           })}

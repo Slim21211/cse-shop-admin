@@ -14,8 +14,8 @@ import {
   useGetMerchProductsQuery,
   useDeleteProductMutation,
   useUpdateProductRemainsMutation,
+  uploadProductImage,
 } from './api';
-import { supabase } from '../../lib/supabase';
 import plural from 'plural-ru';
 import styles from './productList.module.scss';
 
@@ -113,25 +113,15 @@ export const ProductsList = () => {
 
     // Загружаем новые изображения
     for (const file of form.imageFiles) {
-      const filePath = `products/${Date.now()}_${file.name}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('product-images')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        alert('Ошибка загрузки изображения: ' + uploadError.message);
+      try {
+        image_urls.push(await uploadProductImage(file));
+      } catch (e) {
+        alert('Ошибка загрузки изображения: ' + (e as Error).message);
         return;
       }
-
-      const { data: publicData } = supabase.storage
-        .from('product-images')
-        .getPublicUrl(filePath);
-
-      image_urls.push(publicData?.publicUrl || '');
     }
 
-    await updateProduct({
+    const result = await updateProduct({
       id: selectedProduct.id,
       remains: Number(form.remains),
       name: form.name,
@@ -141,6 +131,14 @@ export const ProductsList = () => {
       description: form.description || null,
       image_urls: image_urls.length > 0 ? image_urls : null,
     });
+
+    if ('error' in result) {
+      alert(
+        'Ошибка сохранения: ' +
+          ((result.error as any)?.data?.message || 'попробуйте ещё раз')
+      );
+      return;
+    }
 
     handleClose();
   };

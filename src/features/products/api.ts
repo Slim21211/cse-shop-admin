@@ -35,7 +35,49 @@ export type Order = {
   items: OrderItem[];
   total_cost: number;
   created_at: string;
+  cancelled_at?: string | null; // заказ отменён: баллы и товары возвращены
 };
+
+// Запрос к серверным функциям админки (api/*). В базу браузер больше не ходит:
+// таблицы закрыты RLS, доступ — только через сервер с проверкой admin-session.
+type ApiResult<T> =
+  | { data: T }
+  | { error: { status: number; data: { message: string } } };
+
+async function apiRequest<T>(url: string, init?: RequestInit): Promise<ApiResult<T>> {
+  const r = await fetch(url, {
+    ...init,
+    headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
+  });
+  const body = await r.json().catch(() => ({}));
+  return r.ok
+    ? { data: body as T }
+    : {
+        error: {
+          status: r.status,
+          data: { message: body.message || body.error || `HTTP ${r.status}` },
+        },
+      };
+}
+
+// Загрузка картинки товара: сервер выдаёт подписанную ссылку на конкретный путь в бакете
+export async function uploadProductImage(file: File): Promise<string> {
+  const signed = await apiRequest<{ path: string; token: string; publicUrl: string }>(
+    '/api/products',
+    {
+      method: 'POST',
+      body: JSON.stringify({ action: 'upload-url', fileName: file.name }),
+    }
+  );
+  if ('error' in signed) throw new Error(signed.error.data.message);
+
+  const { error } = await supabase.storage
+    .from('product-images')
+    .uploadToSignedUrl(signed.data.path, signed.data.token, file);
+  if (error) throw new Error(error.message);
+
+  return signed.data.publicUrl;
+}
 
 export const productsApi = createApi({
   reducerPath: 'productsApi',
@@ -44,69 +86,48 @@ export const productsApi = createApi({
   endpoints: (b) => ({
     // 🎯 Мерч
     getMerchProducts: b.query<Product[], void>({
-      queryFn: async () => {
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .eq('is_gift', false);
-
-        return error ? { error } : { data: data as Product[] };
-      },
+      queryFn: () => apiRequest<Product[]>('/api/products?is_gift=false'),
       providesTags: ['Product'],
     }),
 
-    // обновление количества товаров
+    // обновление товара
     updateProductRemains: b.mutation<void, Partial<Product> & { id: number }>({
-      queryFn: async ({ id, ...rest }) => {
-        const { error } = await supabase
-          .from('products')
-          .update(rest)
-          .eq('id', id);
-        return error ? { error } : { data: undefined };
-      },
+      queryFn: (product) =>
+        apiRequest<void>('/api/products', {
+          method: 'PATCH',
+          body: JSON.stringify(product),
+        }),
       invalidatesTags: ['Product'],
     }),
 
     // 🎁 Подарки
     getGiftProducts: b.query<Product[], void>({
-      queryFn: async () => {
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .eq('is_gift', true);
-
-        return error ? { error } : { data: data as Product[] };
-      },
+      queryFn: () => apiRequest<Product[]>('/api/products?is_gift=true'),
       providesTags: ['Product'],
     }),
 
     // 🆕 Добавление (is_gift нужно передавать!)
     addProduct: b.mutation<void, Omit<Product, 'id'>>({
-      queryFn: async (prod) => {
-        const { error } = await supabase.from('products').insert([prod]);
-        return error ? { error } : { data: undefined };
-      },
+      queryFn: (prod) =>
+        apiRequest<void>('/api/products', {
+          method: 'POST',
+          body: JSON.stringify(prod),
+        }),
       invalidatesTags: ['Product'],
     }),
 
     deleteProduct: b.mutation<void, number>({
-      queryFn: async (id) => {
-        const { error } = await supabase.from('products').delete().eq('id', id);
-        return error ? { error } : { data: undefined };
-      },
+      queryFn: (id) =>
+        apiRequest<void>('/api/products', {
+          method: 'DELETE',
+          body: JSON.stringify({ id }),
+        }),
       invalidatesTags: ['Product'],
     }),
 
-    // 📦 Заказы
+    // 📦 Заказы (вместе с отменёнными)
     getOrders: b.query<Order[], void>({
-      queryFn: async () => {
-        const { data, error } = await supabase
-          .from('orders')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        return error ? { error } : { data: data as Order[] };
-      },
+      queryFn: () => apiRequest<Order[]>('/api/orders'),
       providesTags: ['Order'],
     }),
 

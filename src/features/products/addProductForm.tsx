@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Button, TextField, Box, Typography, Chip } from '@mui/material';
 import { useState, useRef } from 'react';
-import { useAddProductMutation } from './api';
-import { supabase } from '../../lib/supabase';
+import { useAddProductMutation, uploadProductImage } from './api';
 
 type ProductForm = {
   name: string;
@@ -78,24 +77,12 @@ export const AddProductForm = ({ isGift }: Props) => {
     try {
       // Загружаем все изображения
       for (const file of form.imageFiles) {
-        const filePath = `products/${Date.now()}_${file.name}`;
-
-        const uploadResult = await supabase.storage
-          .from('product-images')
-          .upload(filePath, file);
-
-        if (uploadResult.error) {
-          setErrorMessage(
-            'Ошибка загрузки файла: ' + uploadResult.error.message
-          );
+        try {
+          image_urls.push(await uploadProductImage(file));
+        } catch (e) {
+          setErrorMessage('Ошибка загрузки файла: ' + (e as Error).message);
           return;
         }
-
-        const publicUrlResult = supabase.storage
-          .from('product-images')
-          .getPublicUrl(filePath);
-
-        image_urls.push(publicUrlResult.data.publicUrl);
       }
 
       await addProduct({

@@ -1,5 +1,5 @@
-// api/cancel-order.ts — отмена заказа: удаление из orders + возврат баллов в iSpring
-// + возврат товаров на склад. Только админ.
+// api/cancel-order.ts — отмена заказа: пометка cancelled_at в orders (заказ остаётся в списке)
+// + возврат баллов в iSpring + возврат товаров на склад. Отмену нельзя откатить. Только админ.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { jwtVerify } from 'jose';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
@@ -126,6 +126,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .maybeSingle();
     if (oerr) return res.status(500).json({ error: 'ORDER: ' + oerr.message });
     if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+    if (order.cancelled_at)
+      return res.status(409).json({ error: 'Заказ уже отменён' });
 
     const { data: u, error: uerr } = await sb
       .from('users')
@@ -141,37 +143,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const amount = Number(order.total_cost) || 0;
 
-    // 2) удаляем заказ. Удаление идёт первым и возвращает строку — так двойной клик
-    //    или параллельная отмена не вернут баллы дважды (вторая получит 0 строк).
-    const { data: deleted, error: derr } = await sb
+    // 2) помечаем заказ отменённым. Пометка идёт первой и условна (cancelled_at is null) —
+    //    так двойной клик или параллельная отмена не вернут баллы дважды (вторая получит 0 строк).
+    const { data: cancelled, error: cerr } = await sb
       .from('orders')
-      .delete()
+      .update({ cancelled_at: new Date().toISOString() })
       .eq('id', orderId)
-      .select('*');
-    if (derr) return res.status(500).json({ error: 'DELETE: ' + derr.message });
-    if (!deleted || deleted.length === 0)
+      .is('cancelled_at', null)
+      .select('id');
+    if (cerr) return res.status(500).json({ error: 'CANCEL: ' + cerr.message });
+    if (!cancelled || cancelled.length === 0)
       return res.status(409).json({ error: 'Заказ уже отменён' });
 
-    // 3) возвращаем баллы; если iSpring не принял — восстанавливаем заказ
+    // 3) возвращаем баллы; если iSpring не принял — снимаем пометку отмены
     if (amount > 0) {
       try {
         const token = await ispringToken();
         await awardPoints(token, ispringId, amount, REFUND_REASON);
       } catch (e) {
         const msg = String((e as Error)?.message || e);
-        const { error: rerr } = await sb.from('orders').insert(deleted[0]);
-        if (rerr)
-          console.error('cancel-order: restore failed', rerr.message, deleted[0]);
+        const { error: rerr } = await sb
+          .from('orders')
+          .update({ cancelled_at: null })
+          .eq('id', orderId);
+        if (rerr) console.error('cancel-order: restore failed', rerr.message, orderId);
         return res.status(502).json({
           error: rerr
-            ? `Баллы не начислены (${msg}), и заказ не удалось восстановить: ${rerr.message}`
-            : `Баллы не начислены, заказ восстановлен: ${msg}`,
+            ? `Баллы не начислены (${msg}), и пометку отмены не удалось снять: ${rerr.message}`
+            : `Баллы не начислены, заказ не отменён: ${msg}`,
         });
       }
     }
 
-    // 4) возвращаем товары на склад. Сюда доходит только запрос, который сам удалил заказ
-    //    (шаг 2), поэтому повторная отмена остатки второй раз не увеличит.
+    // 4) возвращаем товары на склад. Сюда доходит только запрос, который сам поставил
+    //    пометку отмены (шаг 2), поэтому повторная отмена остатки второй раз не увеличит.
     //    Одинаковые товары в заказе суммируем, чтобы обновлять каждый один раз.
     const qtyByProduct = new Map<number, { qty: number; name: string }>();
     for (const it of (order.items || []) as OrderItem[]) {

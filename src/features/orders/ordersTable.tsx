@@ -14,8 +14,9 @@ import {
   useTheme,
   Button,
   Stack,
+  Chip,
 } from '@mui/material'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
@@ -47,6 +48,7 @@ const OrdersTable = () => {
 
       return {
         'Номер заказа': order.id,
+        'Статус': order.cancelled_at ? 'Отменён' : 'Оформлен',
         'Пользователь': order.user_name,
         'Email': order.email,
         'Телеграм': order.telegram_login ? `@${order.telegram_login}` : '',
@@ -150,9 +152,10 @@ const OrdersTable = () => {
           <TableBody>
             {orders.map((order) => {
               const pluralCommonPrice = plural(order.total_cost, 'балл', 'балла', 'баллов')
+              const isCancelled = !!order.cancelled_at
               return (
-                <>
-                  <TableRow key={order.id}>
+                <Fragment key={order.id}>
+                  <TableRow sx={isCancelled ? { opacity: 0.6 } : undefined}>
                     <TableCell>
                       <IconButton
                         aria-label="expand row"
@@ -166,7 +169,12 @@ const OrdersTable = () => {
                         )}
                       </IconButton>
                     </TableCell>
-                    <TableCell>{order.id}</TableCell>
+                    <TableCell>
+                      {order.id}
+                      {isCancelled && (
+                        <Chip label="Отменён" color="error" size="small" sx={{ ml: 1 }} />
+                      )}
+                    </TableCell>
                     <TableCell>{order.user_name}</TableCell>
                     <TableCell>
                       <a
@@ -187,7 +195,7 @@ const OrdersTable = () => {
                       </a>
                     </TableCell>
                     <TableCell>
-                      <Box
+                      {order.telegram_login && <Box
                         component="a"
                         href={`https://t.me/${order.telegram_login}`}
                         target="_blank"
@@ -202,21 +210,21 @@ const OrdersTable = () => {
                         }}
                       >
                         @{order.telegram_login}
-                      </Box>
+                      </Box>}
                     </TableCell>
                     <TableCell>
                       {new Date(order.created_at).toISOString().replace('T', ' ').substring(0, 19)}
                     </TableCell>
                     <TableCell align="right">{order.total_cost} {pluralCommonPrice}</TableCell>
                     <TableCell align="right">
-                      <Button
+                      {!isCancelled && <Button
                         size="small"
                         color="error"
                         startIcon={<CancelOutlinedIcon />}
                         onClick={() => setOrderToCancel(order)}
                       >
                         Отменить
-                      </Button>
+                      </Button>}
                     </TableCell>
                   </TableRow>
                   <TableRow>
@@ -237,13 +245,14 @@ const OrdersTable = () => {
                             </TableHead>
                             <TableBody>
                               {order.items.map((item: any, idx: number) => {
-                                const pluralPrice = plural(item.price * item.quantity, 'балл', 'балла', 'баллов')
+                                // item.price в заказе — уже сумма по позиции (цена × количество)
+                                const unitPrice = Math.round(item.price / (item.quantity || 1))
                                 return (
                                   <TableRow key={idx}>
                                     <TableCell>{item.name}</TableCell>
-                                    <TableCell>{item.price} {pluralPrice}</TableCell>
+                                    <TableCell>{unitPrice} {plural(unitPrice, 'балл', 'балла', 'баллов')}</TableCell>
                                     <TableCell>{item.quantity}</TableCell>
-                                    <TableCell>{item.price * item.quantity} {pluralPrice}</TableCell>
+                                    <TableCell>{item.price} {plural(item.price, 'балл', 'балла', 'баллов')}</TableCell>
                                   </TableRow>
                                 )
                               })}
@@ -253,7 +262,7 @@ const OrdersTable = () => {
                       </Collapse>
                     </TableCell>
                   </TableRow>
-                </>
+                </Fragment>
               )
             })}
           </TableBody>

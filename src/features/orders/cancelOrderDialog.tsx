@@ -50,7 +50,8 @@ const CancelOrderDialog = ({ order, onClose }: CancelOrderDialogProps) => {
       <DialogContent>
         {order && !warning && (
           <DialogContentText>
-            Заказ будет удалён, товары вернутся на склад, а пользователю {order.user_name}{' '}
+            Заказ будет помечен как отменённый (отмену нельзя будет откатить), товары вернутся
+            на склад, а пользователю {order.user_name}{' '}
             вернутся {order.total_cost} {plural(order.total_cost, 'балл', 'балла', 'баллов')}{' '}
             с причиной «Отмена заказа в Магазине подарков».
           </DialogContentText>
