@@ -89,7 +89,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { data, error } = await sb
         .from('products')
         .select('*')
-        .eq('is_gift', req.query.is_gift === 'true');
+        .eq('is_gift', req.query.is_gift === 'true')
+        // Без явной сортировки Postgres отдаёт строки в произвольном порядке
+        // (изменённый товар «уезжает»), поэтому фиксируем: дороже — выше
+        .order('price', { ascending: false })
+        .order('id', { ascending: true });
       if (error) return res.status(500).json({ message: error.message });
       return res.status(200).json(data);
     }
