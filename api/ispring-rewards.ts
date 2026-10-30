@@ -5,7 +5,7 @@ import {
   ISpringUser,
   ISpringUserListResponse,
   ISpringUserField,
-} from './types.js';
+} from './_types.js';
 
 // --- Вспомогательные интерфейсы ---
 
