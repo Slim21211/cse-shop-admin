@@ -1,8 +1,14 @@
 import { Box, Typography } from '@mui/material';
-import { type Employee, type Row, rowPoints, PRO_POINTS, T } from '../types';
+import {
+  type Employee,
+  type Row,
+  rowPoints,
+  T,
+  useAwardSettings,
+} from '../types';
 import { Toggle } from './Toggle';
 import { Segmented } from './Segmented';
-import { IndicatorsInfo } from './IndicatorsInfo';
+import { IndicatorsInfo, type IndicatorKey } from './IndicatorsInfo';
 
 interface EmployeeCardProps {
   employee: Employee;
@@ -38,7 +44,9 @@ export function EmployeeCard({
   onUpdate,
   onOpenComment,
 }: EmployeeCardProps) {
-  const total = rowPoints(row);
+  const s = useAwardSettings();
+  const total = rowPoints(row, s);
+  const proPoints = s.pro.levels[row.pro].points;
   const active = total > 0;
   const initials = `${employee.lastName[0] || ''}${employee.firstName[0] || ''}`;
 
@@ -147,8 +155,9 @@ export function EmployeeCard({
             <Typography sx={{ fontSize: 14, fontWeight: 500, color: T.ink }}>
               Результативность
             </Typography>
+            <IndicatorsInfo indicator="rez" />
           </Box>
-          <ValueBadge points={60} on={row.rez} />
+          <ValueBadge points={s.rez.points} on={row.rez} />
         </Box>
 
         {/* проактивность */}
@@ -164,12 +173,9 @@ export function EmployeeCard({
               <Typography sx={{ fontSize: 14, fontWeight: 500, color: T.ink }}>
                 Проактивность
               </Typography>
-              <IndicatorsInfo />
+              <IndicatorsInfo indicator="pro" />
             </Box>
-            <ValueBadge
-              points={PRO_POINTS[row.pro]}
-              on={PRO_POINTS[row.pro] > 0}
-            />
+            <ValueBadge points={proPoints} on={proPoints > 0} />
           </Box>
           <Segmented value={row.pro} onChange={(p) => onUpdate({ pro: p })} />
         </Box>
@@ -183,14 +189,16 @@ export function EmployeeCard({
           }}
         >
           <ExtraItem
+            indicator="unknown"
             label="Благодарности"
-            points={10}
+            points={s.unknown.points}
             on={row.unknown}
             onToggle={(v) => onUpdate({ unknown: v })}
           />
           <ExtraItem
+            indicator="free"
             label={row.free && row.comment ? 'Свободный ✎' : 'Свободный'}
-            points={10}
+            points={s.free.points}
             on={row.free}
             onToggle={handleFree}
             onLabelClick={row.free ? onOpenComment : undefined}
@@ -244,12 +252,14 @@ export function EmployeeCard({
 }
 
 function ExtraItem({
+  indicator,
   label,
   points,
   on,
   onToggle,
   onLabelClick,
 }: {
+  indicator: IndicatorKey;
   label: string;
   points: number;
   on: boolean;
@@ -286,6 +296,7 @@ function ExtraItem({
         >
           {label}
         </Typography>
+        <IndicatorsInfo indicator={indicator} />
       </Box>
       <ValueBadge points={points} on={on} />
     </Box>

@@ -1,4 +1,7 @@
-import { useEffect } from 'react';
+import { createContext, useContext, useEffect } from 'react';
+import { type AwardSettings, type Pro, PRO_OPTS } from '../awardSettings/api';
+
+export { type Pro, PRO_OPTS };
 
 export const T = {
   font: "'Inter', system-ui, -apple-system, sans-serif",
@@ -45,8 +48,6 @@ export interface Employee {
   jobTitle: string;
 }
 
-export type Pro = 'А' | 'Б' | 'В' | 'Г' | 'Д';
-
 export interface Row {
   rez: boolean;
   pro: Pro;
@@ -57,14 +58,14 @@ export interface Row {
 
 export type SubmitPhase = 'confirm' | 'loading' | 'success' | 'error';
 
-export const PRO_POINTS: Record<Pro, number> = {
-  А: 0,
-  Б: 5,
-  В: 10,
-  Г: 15,
-  Д: 20,
-};
-export const PRO_OPTS: Pro[] = ['А', 'Б', 'В', 'Г', 'Д'];
+// Баллы за показатели и подсказки — из award_settings, загружаются в ManagerPanel.
+export const AwardSettingsContext = createContext<AwardSettings | null>(null);
+
+export function useAwardSettings(): AwardSettings {
+  const v = useContext(AwardSettingsContext);
+  if (!v) throw new Error('useAwardSettings must be used within ManagerPanel');
+  return v;
+}
 
 export const emptyRow = (): Row => ({
   rez: false,
@@ -74,8 +75,8 @@ export const emptyRow = (): Row => ({
   comment: '',
 });
 
-export const rowPoints = (r: Row) =>
-  (r.rez ? 60 : 0) +
-  PRO_POINTS[r.pro] +
-  (r.unknown ? 10 : 0) +
-  (r.free ? 10 : 0);
+export const rowPoints = (r: Row, s: AwardSettings) =>
+  (r.rez ? s.rez.points : 0) +
+  s.pro.levels[r.pro].points +
+  (r.unknown ? s.unknown.points : 0) +
+  (r.free ? s.free.points : 0);

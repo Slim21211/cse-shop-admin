@@ -61,6 +61,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       allowedSet.has(d.department_id)
     );
 
+    // бюджет на человека — из award_settings (посчитан базой)
+    const { data: settings, error: serr } = await sb
+      .from('award_settings')
+      .select('budget_per_head')
+      .eq('id', true)
+      .maybeSingle();
+    if (serr || !settings) {
+      console.error('manager/departments: award_settings', serr?.message);
+      return res.status(500).json({ error: 'server error' });
+    }
+
     const month = monthKey();
     const departments = [];
     for (const d of mine as {
@@ -87,7 +98,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         name: d.name,
         code: d.code,
         headcount,
-        budget: headcount * 70,
+        budget: headcount * settings.budget_per_head,
         submittedThisMonth: !!period,
       });
     }

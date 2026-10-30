@@ -1,5 +1,5 @@
 import { Box } from '@mui/material';
-import { type Pro, PRO_OPTS, PRO_POINTS, T } from '../types';
+import { type Pro, PRO_OPTS, T, useAwardSettings } from '../types';
 
 interface SegmentedProps {
   value: Pro;
@@ -17,6 +17,7 @@ export function Segmented({
   variant = 'full',
 }: SegmentedProps) {
   const compact = variant === 'compact';
+  const { pro } = useAwardSettings();
   return (
     <Box
       sx={{
@@ -36,7 +37,7 @@ export function Segmented({
             type="button"
             disabled={disabled}
             onClick={() => onChange(o)}
-            title={`+${PRO_POINTS[o]}`}
+            title={`+${pro.levels[o].points}`}
             sx={{
               flex: compact ? 'none' : 1,
               width: compact ? 30 : 'auto',

@@ -9,9 +9,16 @@ import {
   TableCell,
 } from '@mui/material';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
-import { type Employee, type Row, rowPoints, T, emptyRow } from '../types';
+import {
+  type Employee,
+  type Row,
+  rowPoints,
+  T,
+  emptyRow,
+  useAwardSettings,
+} from '../types';
 import { Segmented } from './Segmented';
-import { IndicatorsInfo } from './IndicatorsInfo';
+import { IndicatorsInfo, type IndicatorKey } from './IndicatorsInfo';
 
 interface EmployeeTableProps {
   employees: Employee[];
@@ -29,9 +36,11 @@ const checkSx = {
 function HeadCell({
   children,
   sub,
+  info,
 }: {
   children: React.ReactNode;
   sub?: string;
+  info?: IndicatorKey;
 }) {
   return (
     <TableCell
@@ -50,6 +59,7 @@ function HeadCell({
           <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: T.muted }}>
             {children}
           </Typography>
+          {info && <IndicatorsInfo indicator={info} />}
         </Box>
         {sub && (
           <Typography sx={{ fontSize: 11, fontWeight: 600, color: T.accent }}>
@@ -68,6 +78,7 @@ export function EmployeeTable({
   onUpdate,
   onOpenComment,
 }: EmployeeTableProps) {
+  const s = useAwardSettings();
   const handleFree = (id: string, v: boolean) => {
     if (v) {
       onUpdate(id, { free: true });
@@ -95,7 +106,9 @@ export function EmployeeTable({
                 Сотрудник
               </Typography>
             </TableCell>
-            <HeadCell sub="+60">Результат</HeadCell>
+            <HeadCell sub={`+${s.rez.points}`} info="rez">
+              Результат
+            </HeadCell>
             <TableCell
               align="center"
               sx={{ borderBottom: `1px solid ${T.line}`, py: 1.25 }}
@@ -113,11 +126,15 @@ export function EmployeeTable({
                 >
                   Проактивность
                 </Typography>
-                <IndicatorsInfo />
+                <IndicatorsInfo indicator="pro" />
               </Box>
             </TableCell>
-            <HeadCell sub="+10">Благодарности</HeadCell>
-            <HeadCell sub="+10">Свободный</HeadCell>
+            <HeadCell sub={`+${s.unknown.points}`} info="unknown">
+              Благодарности
+            </HeadCell>
+            <HeadCell sub={`+${s.free.points}`} info="free">
+              Свободный
+            </HeadCell>
             <TableCell
               align="right"
               sx={{ borderBottom: `1px solid ${T.line}`, py: 1.25, pr: 2 }}
@@ -133,7 +150,7 @@ export function EmployeeTable({
         <TableBody>
           {employees.map((e) => {
             const row = rows[e.ispringUserId] || emptyRow();
-            const total = rowPoints(row);
+            const total = rowPoints(row, s);
             const active = total > 0;
             return (
               <TableRow

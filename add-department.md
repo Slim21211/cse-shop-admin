@@ -47,7 +47,7 @@ order by u.last_name, u.first_name, d.name;
 В выдаче:
 
 - один руководитель может вести **несколько** отделов (до 10 из-за inherit) — покажет все;
-- `headcount` — активный штат (бюджет = `70 × headcount`);
+- `headcount` — активный штат (бюджет = `award_settings.budget_per_head × headcount`, настраивается на вкладке «Показатели»);
 - `allowed` — отдел уже в аллоулисте (`true`) или нет (`false`);
 - тёзок различать по `first_name` / `job_title` / `email`.
 

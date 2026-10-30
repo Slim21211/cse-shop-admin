@@ -20,7 +20,12 @@ import {
   type SubmitPhase,
   emptyRow,
   rowPoints,
+  AwardSettingsContext,
 } from './types';
+import {
+  type AwardSettings,
+  fetchAwardSettings,
+} from '../awardSettings/api';
 import { DepartmentList } from './components/DepartmentList';
 import { LockedDepartmentView } from './components/LockedDepartmentView';
 import { BudgetBar } from './components/BudgetBar';
@@ -34,6 +39,7 @@ export function ManagerPanel() {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const [departments, setDepartments] = useState<Department[] | null>(null);
+  const [settings, setSettings] = useState<AwardSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Department | null>(null);
   const [employees, setEmployees] = useState<Employee[] | null>(null);
@@ -47,11 +53,18 @@ export function ManagerPanel() {
     errorText?: string;
   }>({ open: false, phase: 'confirm' });
 
+  // настройки перечитываем вместе с отделами — бюджет считается от них же
   const loadDepartments = async () => {
     try {
-      const r = await fetch('/api/manager/departments');
+      const [r, s] = await Promise.all([
+        fetch('/api/manager/departments'),
+        fetchAwardSettings().catch(() => {
+          throw new Error('Не удалось загрузить настройки начисления');
+        }),
+      ]);
       if (!r.ok) throw new Error('Не удалось загрузить подразделения');
       setDepartments((await r.json()).departments || []);
+      setSettings(s);
     } catch (e) {
       setError(String((e as Error).message || e));
     }
@@ -88,15 +101,19 @@ export function ManagerPanel() {
   const update = (id: string, patch: Partial<Row>) =>
     setRows((p) => ({ ...p, [id]: { ...p[id], ...patch } }));
 
+  const points = (r: Row) => (settings ? rowPoints(r, settings) : 0);
   const spent = useMemo(
-    () => Object.values(rows).reduce((s, r) => s + rowPoints(r), 0),
-    [rows]
+    () =>
+      settings
+        ? Object.values(rows).reduce((s, r) => s + rowPoints(r, settings), 0)
+        : 0,
+    [rows, settings]
   );
   const remaining = (selected?.budget || 0) - spent;
   const invalidComment = Object.values(rows).some(
     (r) => r.free && !r.comment.trim()
   );
-  const awardCount = Object.values(rows).filter((r) => rowPoints(r) > 0).length;
+  const awardCount = Object.values(rows).filter((r) => points(r) > 0).length;
   const canSubmit = spent > 0 && remaining >= 0 && !invalidComment;
 
   const doSubmit = async () => {
@@ -104,7 +121,7 @@ export function ManagerPanel() {
     setSubmit({ open: true, phase: 'loading' });
     try {
       const awards = Object.entries(rows)
-        .filter(([, r]) => rowPoints(r) > 0)
+        .filter(([, r]) => points(r) > 0)
         .map(([employeeId, r]) => ({
           employeeId,
           indicators: {
@@ -163,11 +180,15 @@ export function ManagerPanel() {
   };
 
   const page = (children: React.ReactNode) => (
-    <Box sx={{ font: T.font, color: T.ink, bgcolor: T.bg, minHeight: '100vh' }}>
-      <Container maxWidth="md" sx={{ py: { xs: 3, md: 5 } }}>
-        {children}
-      </Container>
-    </Box>
+    <AwardSettingsContext.Provider value={settings}>
+      <Box
+        sx={{ font: T.font, color: T.ink, bgcolor: T.bg, minHeight: '100vh' }}
+      >
+        <Container maxWidth="md" sx={{ py: { xs: 3, md: 5 } }}>
+          {children}
+        </Container>
+      </Box>
+    </AwardSettingsContext.Provider>
   );
 
   if (error)
@@ -176,7 +197,7 @@ export function ManagerPanel() {
         {error}
       </Box>
     );
-  if (departments === null)
+  if (departments === null || settings === null)
     return page(
       <Box sx={{ textAlign: 'center', py: 8 }}>
         <CircularProgress sx={{ color: T.accent }} />

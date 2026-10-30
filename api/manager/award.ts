@@ -3,9 +3,41 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { jwtVerify } from 'jose';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const PRO: Record<string, number> = { А: 0, Б: 5, В: 10, Г: 15, Д: 20 };
-const POINTS_PER_HEAD = 70;
-const MAX_PER_EMPLOYEE = 100;
+// Баллы за показатели — из award_settings (см. sql/award_settings.sql), уже посчитанные базой.
+type Weights = {
+  maxPerEmployee: number;
+  budgetPerHead: number;
+  rez: number;
+  pro: Record<string, number>;
+  unknown: number;
+  free: number;
+};
+
+async function loadWeights(sb: SupabaseClient): Promise<Weights> {
+  const { data, error } = await sb
+    .from('award_settings')
+    .select(
+      'max_per_employee, budget_per_head, rez_points, pro_a_points, pro_b_points, pro_v_points, pro_g_points, pro_d_points, unknown_points, free_points'
+    )
+    .eq('id', true)
+    .maybeSingle();
+  if (error) throw new Error('award_settings: ' + error.message);
+  if (!data) throw new Error('award_settings не заполнены');
+  return {
+    maxPerEmployee: data.max_per_employee,
+    budgetPerHead: data.budget_per_head,
+    rez: data.rez_points,
+    pro: {
+      А: data.pro_a_points,
+      Б: data.pro_b_points,
+      В: data.pro_v_points,
+      Г: data.pro_g_points,
+      Д: data.pro_d_points,
+    },
+    unknown: data.unknown_points,
+    free: data.free_points,
+  };
+}
 
 type Indicators = {
   rez?: boolean;
@@ -14,18 +46,22 @@ type Indicators = {
   free?: boolean;
 };
 
-function calcPoints(ind: Indicators): number {
+function calcPoints(ind: Indicators, w: Weights): number {
   let p = 0;
-  if (ind.rez) p += 60;
-  p += PRO[ind.pro ?? ''] ?? 0;
-  if (ind.unknown) p += 10;
-  if (ind.free) p += 10;
+  if (ind.rez) p += w.rez;
+  p += w.pro[ind.pro ?? ''] ?? 0;
+  if (ind.unknown) p += w.unknown;
+  if (ind.free) p += w.free;
   return p;
 }
-function buildReason(ind: Indicators, comment?: string | null): string {
+function buildReason(
+  ind: Indicators,
+  w: Weights,
+  comment?: string | null
+): string {
   const parts: string[] = [];
   if (ind.rez) parts.push('результативность');
-  if ((PRO[ind.pro ?? ''] ?? 0) > 0) parts.push('проактивность');
+  if ((w.pro[ind.pro ?? ''] ?? 0) > 0) parts.push('проактивность');
   if (ind.unknown) parts.push('благодарности');
   if (ind.free)
     parts.push(comment ? `дополнительно (${comment})` : 'дополнительно');
@@ -93,6 +129,7 @@ async function awardOne(
 async function pushPending(
   sb: SupabaseClient,
   periodId: string,
+  w: Weights,
   res: VercelResponse
 ) {
   const { data: ents } = await sb
@@ -121,7 +158,7 @@ async function pushPending(
           token,
           e.employee_ispring_id,
           e.points,
-          buildReason(e.indicators, e.comment)
+          buildReason(e.indicators, w, e.comment)
         );
         ispringResponses.push({ userId: e.employee_ispring_id, result: resp });
         await sb
@@ -223,6 +260,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!allowed)
       return res.status(403).json({ error: 'forbidden (not allowed dept)' });
 
+    const w = await loadWeights(sb);
     const month = monthKey();
 
     const { data: existing } = await sb
@@ -231,7 +269,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .eq('department_id', departmentId)
       .eq('period_month', month)
       .maybeSingle();
-    if (existing) return await pushPending(sb, existing.id, res);
+    if (existing) return await pushPending(sb, existing.id, w, res);
 
     if (!Array.isArray(awards) || awards.length === 0)
       return res.status(400).json({ error: 'no awards' });
@@ -244,7 +282,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const rosterSet = new Set(
       (roster || []).map((r: { ispring_user_id: string }) => r.ispring_user_id)
     );
-    const budget = rosterSet.size * POINTS_PER_HEAD;
+    const budget = rosterSet.size * w.budgetPerHead;
 
     const entries: {
       employee_ispring_id: string;
@@ -263,12 +301,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res
           .status(400)
           .json({ error: 'comment required for free indicator' });
-      if (ind.pro && !(ind.pro in PRO))
+      if (ind.pro && !(ind.pro in w.pro))
         return res.status(400).json({ error: `bad pro value: ${ind.pro}` });
-      const points = calcPoints(ind);
+      const points = calcPoints(ind, w);
       if (points <= 0) continue;
-      if (points > MAX_PER_EMPLOYEE)
-        return res.status(400).json({ error: 'more than 100 per employee' });
+      if (points > w.maxPerEmployee)
+        return res
+          .status(400)
+          .json({ error: `more than ${w.maxPerEmployee} per employee` });
       spent += points;
       entries.push({
         employee_ispring_id: a.employeeId,
@@ -316,7 +356,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           periodId: period.id,
         });
 
-    return await pushPending(sb, period.id, res);
+    return await pushPending(sb, period.id, w, res);
   } catch (e) {
     console.error('award:', e);
     return res

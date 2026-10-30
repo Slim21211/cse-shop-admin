@@ -2,27 +2,33 @@ import { useState } from 'react';
 import { Box, Typography, Dialog, IconButton } from '@mui/material';
 import HelpOutlineRoundedIcon from '@mui/icons-material/HelpOutlineRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
-import { PRO_OPTS, PRO_POINTS, T } from '../types';
+import { PRO_OPTS, T, useAwardSettings } from '../types';
 
-// TODO(business): заменить на реальные формулировки А–Д от заказчика.
-const PRO_DESC: Record<string, string> = {
-  А: 'Инициативы не проявлял — работал строго в рамках задач.',
-  Б: 'Разовые предложения по улучшению своей работы.',
-  В: 'Регулярно предлагает идеи, помогает коллегам вне задач.',
-  Г: 'Берёт на себя доп. ответственность, доводит инициативы до результата.',
-  Д: 'Системно улучшает процессы, влияет на работу всего отдела.',
+export type IndicatorKey = 'rez' | 'pro' | 'unknown' | 'free';
+
+const TITLES: Record<IndicatorKey, string> = {
+  rez: 'Результативность',
+  pro: 'Проактивность',
+  unknown: 'Благодарности',
+  free: 'Свободный',
 };
 
-/** Иконка-триггер + модалка с расшифровкой уровней проактивности. */
-export function IndicatorsInfo() {
+/**
+ * Иконка-триггер + модалка с подсказкой, как оценивать показатель.
+ * Тексты и баллы — из award_settings (правят админы на вкладке «Показатели»).
+ */
+export function IndicatorsInfo({ indicator }: { indicator: IndicatorKey }) {
   const [open, setOpen] = useState(false);
+  const s = useAwardSettings();
+  const title = TITLES[indicator];
+  const desc = indicator === 'pro' ? s.pro.desc : s[indicator].desc;
   return (
     <>
       <IconButton
         size="small"
         onClick={() => setOpen(true)}
         sx={{ color: T.muted, p: 0.25, '&:hover': { color: T.accent } }}
-        aria-label="Что значат уровни проактивности"
+        aria-label={`Как оценивать: ${title}`}
       >
         <HelpOutlineRoundedIcon sx={{ fontSize: 17 }} />
       </IconButton>
@@ -44,7 +50,15 @@ export function IndicatorsInfo() {
             }}
           >
             <Typography sx={{ fontWeight: 700, fontSize: 18, color: T.ink }}>
-              Проактивность
+              {title}
+              {indicator !== 'pro' && (
+                <Box
+                  component="span"
+                  sx={{ ml: 1, fontSize: 14, color: T.accent }}
+                >
+                  +{s[indicator].points}
+                </Box>
+              )}
             </Typography>
             <IconButton
               size="small"
@@ -54,61 +68,77 @@ export function IndicatorsInfo() {
               <CloseRoundedIcon sx={{ fontSize: 20 }} />
             </IconButton>
           </Box>
-          <Typography sx={{ color: T.muted, fontSize: 13, mb: 2 }}>
-            Выберите уровень — баллы начислятся автоматически.
-          </Typography>
+          {desc && (
+            <Typography
+              sx={{
+                color: T.muted,
+                fontSize: 13,
+                whiteSpace: 'pre-line',
+                mb: indicator === 'pro' ? 2 : 0,
+              }}
+            >
+              {desc}
+            </Typography>
+          )}
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {PRO_OPTS.map((o) => (
-              <Box
-                key={o}
-                sx={{
-                  display: 'flex',
-                  gap: 1.5,
-                  alignItems: 'flex-start',
-                  p: 1.25,
-                  borderRadius: 2,
-                  bgcolor: T.bg,
-                }}
-              >
+          {indicator === 'pro' && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {PRO_OPTS.map((o) => (
                 <Box
+                  key={o}
                   sx={{
-                    flexShrink: 0,
-                    width: 26,
-                    height: 26,
-                    borderRadius: '50%',
-                    display: 'grid',
-                    placeItems: 'center',
-                    fontWeight: 700,
-                    fontSize: 13,
-                    bgcolor: T.surface,
-                    border: `1px solid ${T.line}`,
-                    color: T.ink,
+                    display: 'flex',
+                    gap: 1.5,
+                    alignItems: 'flex-start',
+                    p: 1.25,
+                    borderRadius: 2,
+                    bgcolor: T.bg,
                   }}
                 >
-                  {o}
-                </Box>
-                <Box sx={{ flexGrow: 1 }}>
-                  <Typography
-                    sx={{ fontSize: 13.5, color: T.ink, lineHeight: 1.35 }}
+                  <Box
+                    sx={{
+                      flexShrink: 0,
+                      width: 26,
+                      height: 26,
+                      borderRadius: '50%',
+                      display: 'grid',
+                      placeItems: 'center',
+                      fontWeight: 700,
+                      fontSize: 13,
+                      bgcolor: T.surface,
+                      border: `1px solid ${T.line}`,
+                      color: T.ink,
+                    }}
                   >
-                    {PRO_DESC[o]}
-                  </Typography>
+                    {o}
+                  </Box>
+                  <Box sx={{ flexGrow: 1 }}>
+                    <Typography
+                      sx={{
+                        fontSize: 13.5,
+                        color: T.ink,
+                        lineHeight: 1.35,
+                        whiteSpace: 'pre-line',
+                      }}
+                    >
+                      {s.pro.levels[o].desc}
+                    </Typography>
+                  </Box>
+                  <Box
+                    component="span"
+                    sx={{
+                      flexShrink: 0,
+                      fontWeight: 700,
+                      fontSize: 12.5,
+                      color: s.pro.levels[o].points > 0 ? T.accent : T.muted,
+                    }}
+                  >
+                    +{s.pro.levels[o].points}
+                  </Box>
                 </Box>
-                <Box
-                  component="span"
-                  sx={{
-                    flexShrink: 0,
-                    fontWeight: 700,
-                    fontSize: 12.5,
-                    color: PRO_POINTS[o] > 0 ? T.accent : T.muted,
-                  }}
-                >
-                  +{PRO_POINTS[o]}
-                </Box>
-              </Box>
-            ))}
-          </Box>
+              ))}
+            </Box>
+          )}
         </Box>
       </Dialog>
     </>

@@ -7,7 +7,7 @@ import {
   Drawer,
   Dialog,
 } from '@mui/material';
-import { T } from '../types';
+import { T, useAwardSettings } from '../types';
 
 interface CommentSheetProps {
   open: boolean;
@@ -29,6 +29,7 @@ export function CommentSheet({
   onClose,
 }: CommentSheetProps) {
   const [val, setVal] = useState(initial);
+  const { free } = useAwardSettings();
 
   useEffect(() => {
     if (open) setVal(initial);
@@ -40,7 +41,7 @@ export function CommentSheet({
         Свободный показатель
       </Typography>
       <Typography sx={{ color: T.muted, fontSize: 14, mb: 2 }}>
-        {name} · +10 баллов
+        {name} · +{free.points} баллов
       </Typography>
       <TextField
         autoFocus

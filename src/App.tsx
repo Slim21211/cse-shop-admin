@@ -8,6 +8,7 @@ import OrdersTable from './features/orders/ordersTable.tsx';
 import { AddGiftForm } from './features/gifts/addGiftForm.tsx';
 import { GiftsList } from './features/gifts/giftList.tsx';
 import { PointsUpload } from './features/points/PointsUpload.tsx';
+import { AwardSettingsForm } from './features/awardSettings/AwardSettingsForm.tsx';
 
 function App() {
   const { role } = useAuth();
@@ -41,6 +42,7 @@ function App() {
         <Tab label="Подарки" />
         <Tab label="Заказы" />
         <Tab label="Начисление баллов" />
+        <Tab label="Показатели" />
       </Tabs>
 
       {tab === 0 && (
@@ -63,6 +65,11 @@ function App() {
       {tab === 3 && (
         <Box>
           <PointsUpload />
+        </Box>
+      )}
+      {tab === 4 && (
+        <Box>
+          <AwardSettingsForm />
         </Box>
       )}
     </Container>
