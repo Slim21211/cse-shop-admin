@@ -67,7 +67,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       t,
       new TextEncoder().encode(process.env.ADMIN_SESSION_SECRET || '')
     );
-    if ((payload as { role?: string }).role !== 'admin')
+    if (
+      !['admin', 'superadmin'].includes((payload as { role?: string }).role || '')
+    )
       return res.status(403).json({ error: 'forbidden' });
   } catch {
     return res.status(401).json({ error: 'unauthorized' });

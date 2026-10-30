@@ -218,7 +218,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch {
       return res.status(401).json({ error: 'unauthorized' });
     }
-    if (role !== 'manager') return res.status(403).json({ error: 'forbidden' });
+    // суперадмин работает как руководитель своих отделов — проверки отдела ниже те же
+    if (role !== 'manager' && role !== 'superadmin')
+      return res.status(403).json({ error: 'forbidden' });
 
     const { departmentId, awards } = (req.body || {}) as {
       departmentId?: string;

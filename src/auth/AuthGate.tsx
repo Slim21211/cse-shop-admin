@@ -19,7 +19,8 @@ import {
 
 const SHOP_HANDOFF_URL = 'https://cse-shop.ru/api/handoff';
 
-export type Role = 'admin' | 'manager';
+// superadmin — админ, который может переключиться в панель руководителя
+export type Role = 'superadmin' | 'admin' | 'manager';
 interface Auth {
   userId: string;
   role: Role;

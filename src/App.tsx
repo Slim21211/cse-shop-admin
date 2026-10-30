@@ -1,4 +1,12 @@
-import { Container, Typography, Tabs, Tab, Box } from '@mui/material';
+import {
+  Container,
+  Typography,
+  Tabs,
+  Tab,
+  Box,
+  Button,
+  Fab,
+} from '@mui/material';
 import { useState } from 'react';
 import { useAuth } from './auth/AuthGate';
 import { ManagerPanel } from './features/manager/ManagerPanel';
@@ -13,6 +21,7 @@ import { AwardSettingsForm } from './features/awardSettings/AwardSettingsForm.ts
 function App() {
   const { role } = useAuth();
   const [tab, setTab] = useState(0);
+  const [asManager, setAsManager] = useState(false);
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setTab(newValue);
@@ -21,6 +30,23 @@ function App() {
   // Руководитель видит ТОЛЬКО свой интерфейс, без админских вкладок.
   if (role === 'manager') {
     return <ManagerPanel />;
+  }
+
+  // Суперадмин может открыть панель руководителя и вернуться обратно.
+  if (role === 'superadmin' && asManager) {
+    return (
+      <>
+        <ManagerPanel />
+        <Fab
+          variant="extended"
+          size="small"
+          onClick={() => setAsManager(false)}
+          sx={{ position: 'fixed', right: 16, bottom: 16 }}
+        >
+          Панель администратора
+        </Fab>
+      </>
+    );
   }
 
   // Админ — как раньше.
@@ -35,6 +61,11 @@ function App() {
         }}
       >
         <Typography variant="h4">Панель администратора</Typography>
+        {role === 'superadmin' && (
+          <Button variant="outlined" onClick={() => setAsManager(true)}>
+            Панель руководителя
+          </Button>
+        )}
       </Box>
 
       <Tabs value={tab} onChange={handleTabChange} sx={{ mb: 4 }}>

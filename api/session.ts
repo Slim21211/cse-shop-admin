@@ -37,20 +37,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     );
 
-    let role: 'admin' | 'manager' | null = null;
+    let role: 'superadmin' | 'admin' | 'manager' | null = null;
 
     // 2a) админ? (admins.user_id = users.id)
     {
       const { data, error } = await sb
         .from('admins')
-        .select('user_id')
+        .select('*') // не по имени: до миграции sql/superadmin.sql колонки is_super нет
         .eq('user_id', userId)
         .maybeSingle();
       if (error) {
         console.error('admins query failed:', error.message);
         return res.status(500).json({ error: 'server error' });
       }
-      if (data) role = 'admin';
+      if (data) role = data.is_super === true ? 'superadmin' : 'admin';
     }
 
     // 2b) иначе руководитель? есть разрешённый отдел, где он supervisor

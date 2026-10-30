@@ -184,7 +184,10 @@ export function EmployeeTable({
                         fontSize: 12,
                         mt: 0.25,
                         cursor: 'pointer',
-                        maxWidth: 240,
+                        // не влияет на ширину колонки: занимает ту ширину,
+                        // что задали ФИО и должность, остальное — в многоточие
+                        width: 0,
+                        minWidth: '100%',
                         '&:hover': { textDecoration: 'underline' },
                       }}
                       noWrap

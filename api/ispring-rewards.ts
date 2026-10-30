@@ -274,7 +274,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       process.env.ADMIN_SESSION_SECRET || ''
     );
     const { payload } = await jwtVerify(t, secret);
-    if ((payload as { role?: string }).role !== 'admin') {
+    if (
+      !['admin', 'superadmin'].includes((payload as { role?: string }).role || '')
+    ) {
       return res.status(403).json({ error: 'forbidden' });
     }
   } catch {

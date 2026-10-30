@@ -100,7 +100,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch {
     return res.status(401).json({ error: 'unauthorized' });
   }
-  if (role !== 'admin' && role !== 'manager')
+  if (role !== 'admin' && role !== 'manager' && role !== 'superadmin')
     return res.status(403).json({ error: 'forbidden' });
 
   try {
@@ -122,7 +122,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'PUT') {
-      if (role !== 'admin') return res.status(403).json({ error: 'forbidden' });
+      if (role !== 'admin' && role !== 'superadmin')
+        return res.status(403).json({ error: 'forbidden' });
       const parsed = toRow((req.body || {}) as Partial<Settings>);
       if ('error' in parsed) return res.status(400).json({ error: parsed.error });
 
