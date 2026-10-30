@@ -33,39 +33,65 @@ const checkSx = {
   '&.Mui-checked': { color: T.accent },
 };
 
+const ALIGN_ITEMS = {
+  left: 'flex-start',
+  center: 'center',
+  right: 'flex-end',
+} as const;
+
+/**
+ * Ячейка шапки: всегда две строки (название и баллы) одинаковой высоты,
+ * чтобы названия всех колонок стояли на одной линии.
+ */
 function HeadCell({
   children,
   sub,
   info,
+  align = 'center',
 }: {
   children: React.ReactNode;
   sub?: string;
   info?: IndicatorKey;
+  align?: keyof typeof ALIGN_ITEMS;
 }) {
   return (
     <TableCell
-      align="center"
-      sx={{ borderBottom: `1px solid ${T.line}`, py: 1.25 }}
+      align={align}
+      sx={{
+        borderBottom: `1px solid ${T.line}`,
+        py: 1.25,
+        verticalAlign: 'top',
+        ...(align === 'right' && { pr: 2 }),
+      }}
     >
       <Box
         sx={{
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
+          alignItems: ALIGN_ITEMS[align],
           gap: 0.25,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        {/* высота строки = высота иконки «?», с ней и без неё одинаково */}
+        <Box
+          sx={{ display: 'flex', alignItems: 'center', gap: 0.5, height: 22 }}
+        >
           <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: T.muted }}>
             {children}
           </Typography>
           {info && <IndicatorsInfo indicator={info} />}
         </Box>
-        {sub && (
-          <Typography sx={{ fontSize: 11, fontWeight: 600, color: T.accent }}>
-            {sub}
-          </Typography>
-        )}
+        <Typography
+          sx={{
+            fontSize: 11,
+            fontWeight: 600,
+            color: T.accent,
+            lineHeight: '16px',
+            minHeight: 16,
+          }}
+        >
+          {sub}
+        </Typography>
       </Box>
     </TableCell>
   );
@@ -79,6 +105,7 @@ export function EmployeeTable({
   onOpenComment,
 }: EmployeeTableProps) {
   const s = useAwardSettings();
+  const proMax = Math.max(...Object.values(s.pro.levels).map((l) => l.points));
   const handleFree = (id: string, v: boolean) => {
     if (v) {
       onUpdate(id, { free: true });
@@ -99,52 +126,20 @@ export function EmployeeTable({
       <Table size="small" sx={{ '& td, & th': { font: T.font } }}>
         <TableHead>
           <TableRow sx={{ bgcolor: '#FAFBFC' }}>
-            <TableCell sx={{ borderBottom: `1px solid ${T.line}`, py: 1.25 }}>
-              <Typography
-                sx={{ fontSize: 12.5, fontWeight: 600, color: T.muted }}
-              >
-                Сотрудник
-              </Typography>
-            </TableCell>
+            <HeadCell align="left">Сотрудник</HeadCell>
             <HeadCell sub={`+${s.rez.points}`} info="rez">
               Результат
             </HeadCell>
-            <TableCell
-              align="center"
-              sx={{ borderBottom: `1px solid ${T.line}`, py: 1.25 }}
-            >
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 0.5,
-                }}
-              >
-                <Typography
-                  sx={{ fontSize: 12.5, fontWeight: 600, color: T.muted }}
-                >
-                  Проактивность
-                </Typography>
-                <IndicatorsInfo indicator="pro" />
-              </Box>
-            </TableCell>
+            <HeadCell sub={`до +${proMax}`} info="pro">
+              Проактивность
+            </HeadCell>
             <HeadCell sub={`+${s.unknown.points}`} info="unknown">
               Благодарности
             </HeadCell>
             <HeadCell sub={`+${s.free.points}`} info="free">
               Свободный
             </HeadCell>
-            <TableCell
-              align="right"
-              sx={{ borderBottom: `1px solid ${T.line}`, py: 1.25, pr: 2 }}
-            >
-              <Typography
-                sx={{ fontSize: 12.5, fontWeight: 600, color: T.muted }}
-              >
-                Итого
-              </Typography>
-            </TableCell>
+            <HeadCell align="right">Итого</HeadCell>
           </TableRow>
         </TableHead>
         <TableBody>
