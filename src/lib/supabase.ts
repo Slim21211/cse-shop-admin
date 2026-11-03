@@ -1,6 +1,18 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-export const supabase = createClient(
-  'https://wjjwuljhrjxpqytsbstd.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqand1bGpocmp4cHF5dHNic3RkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA5MjcxNzUsImV4cCI6MjA2NjUwMzE3NX0.-qsrGWDUtrFXwXO6ZhvcSENUt12rkBEmsUOybsyCq24'
-)
+// Публичный publishable-ключ (он и так виден в браузере) — нужен только для загрузки
+// картинок по подписанной ссылке. Берётся из env, чтобы при смене ключа не править код.
+// Клиент создаётся при первом обращении: без env падает только загрузка, а не вся админка.
+let client: SupabaseClient | null = null;
+
+export function getSupabase(): SupabaseClient {
+  if (client) return client;
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key)
+    throw new Error(
+      'Не заданы VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY'
+    );
+  client = createClient(url, key);
+  return client;
+}

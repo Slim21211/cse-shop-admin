@@ -1,5 +1,5 @@
 import { createApi, fakeBaseQuery } from '@reduxjs/toolkit/query/react';
-import { supabase } from '../../lib/supabase';
+import { getSupabase } from '../../lib/supabase';
 import plural from 'plural-ru';
 
 // Экспортируем функцию для использования в компонентах
@@ -71,7 +71,7 @@ export async function uploadProductImage(file: File): Promise<string> {
   );
   if ('error' in signed) throw new Error(signed.error.data.message);
 
-  const { error } = await supabase.storage
+  const { error } = await getSupabase().storage
     .from('product-images')
     .uploadToSignedUrl(signed.data.path, signed.data.token, file);
   if (error) throw new Error(error.message);
