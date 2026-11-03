@@ -17,7 +17,7 @@ node --env-file=.env sync-org.mjs
 
 Ключи берутся из локального `.env` (в репозиторий не коммитится): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ISPRING_CLIENT_ID`, `ISPRING_CLIENT_SECRET`. Нужен Node 20.6+ (флаг `--env-file`).
 
-> Позже вынести в GitHub Actions (ночной cron + кнопка «Run workflow»). Тогда этот шаг = нажать кнопку либо дождаться ночного прогона.
+> Автоматически синк идёт раз в сутки (03:00 МСК) в GitHub Actions — workflow «Sync org». Чтобы обновить сразу: GitHub → Actions → **Sync org** → **Run workflow**. Локальный запуск выше — запасной вариант.
 
 ---
 

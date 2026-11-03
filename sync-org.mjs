@@ -236,6 +236,12 @@ async function deleteStale(table) {
     });
   }
 
+  // без этой проверки сбой iSpring (пустой ответ) стёр бы весь кэш через deleteStale
+  if (!users.length || !deptRows.length)
+    throw new Error(
+      `iSpring вернул пустые данные (юзеров ${users.length}, отделов ${deptRows.length}) — кэш не трогаю`
+    );
+
   console.log(
     `4) пишу в Supabase: org_users=${users.length}, org_departments=${deptRows.length}…`
   );

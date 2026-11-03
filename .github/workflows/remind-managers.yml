@@ -1,0 +1,42 @@
+# Напоминания руководителям о начислении баллов (remind-managers.mjs).
+# По расписанию шлёт письма тем, кто ещё не начислил в этом месяце.
+# Ручной запуск: Actions -> «Remind managers» -> Run workflow (по умолчанию — без отправки).
+name: Remind managers
+
+on:
+  schedule:
+    - cron: '0 7 20,25,28 * *' # 20, 25 и 28 числа в 10:00 по Москве (cron в UTC)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Только посчитать, ничего не отправлять'
+        type: boolean
+        default: true
+      test_to:
+        description: 'Отправить все письма на этот адрес вместо руководителей'
+        type: string
+        required: false
+
+concurrency:
+  group: remind-managers
+  cancel-in-progress: false
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node remind-managers.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          # по расписанию — настоящая отправка; вручную — как выбрано в форме
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '' }}
+          TEST_TO: ${{ inputs.test_to }}

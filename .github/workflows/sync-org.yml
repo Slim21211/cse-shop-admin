@@ -1,0 +1,30 @@
+# Синк оргструктуры iSpring -> Supabase (sync-org.mjs).
+# Раз в сутки + ручной запуск: Actions -> «Sync org» -> Run workflow.
+name: Sync org
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # 03:00 по Москве (cron в UTC)
+  workflow_dispatch:
+
+concurrency:
+  group: sync-org
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # зависимостей нет — npm install не нужен
+      - run: node sync-org.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ISPRING_DOMAIN: ${{ secrets.ISPRING_DOMAIN }}
+          ISPRING_CLIENT_ID: ${{ secrets.ISPRING_CLIENT_ID }}
+          ISPRING_CLIENT_SECRET: ${{ secrets.ISPRING_CLIENT_SECRET }}
