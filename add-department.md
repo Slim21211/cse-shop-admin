@@ -12,15 +12,10 @@
 Перетягивает из iSpring актуальных руководителей/сотрудников в `org_departments` + `org_users` (upsert + удаление протухших). Делать, если в iSpring менялись руководители/штат.
 
 ```bash
-SUPABASE_URL=<из шапки sync-org.mjs> \
-SUPABASE_SERVICE_ROLE_KEY=<из шапки sync-org.mjs> \
-ISPRING_DOMAIN=cse.ispringlearn.ru \
-ISPRING_CLIENT_ID=<из шапки sync-org.mjs> \
-ISPRING_CLIENT_SECRET=<из шапки sync-org.mjs> \
-node sync-org.mjs
+node --env-file=.env sync-org.mjs
 ```
 
-Значения лежат в комментарии в начале `sync-org.mjs` — проще скопировать оттуда.
+Ключи берутся из локального `.env` (в репозиторий не коммитится): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ISPRING_CLIENT_ID`, `ISPRING_CLIENT_SECRET`. Нужен Node 20.6+ (флаг `--env-file`).
 
 > Позже вынести в GitHub Actions (ночной cron + кнопка «Run workflow»). Тогда этот шаг = нажать кнопку либо дождаться ночного прогона.
 

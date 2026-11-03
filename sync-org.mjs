@@ -9,13 +9,10 @@
  *   3. upsert в Supabase с меткой текущего запуска, затем удаление «протухших» строк
  *      (которых в этом запуске не было) — так отражаются увольнения/переносы.
  *
- * Зависимостей нет (Node >= 18). Запуск:
- *   SUPABASE_URL=https://wjjwuljhrjxpqytsbstd.supabase.co \
- *   SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqand1bGpocmp4cHF5dHNic3RkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDkyNzE3NSwiZXhwIjoyMDY2NTAzMTc1fQ.FJ4tXyTZyxeN5luWzPcAjBMBsNFghtxp-CFxjk_T77c \
- *   ISPRING_DOMAIN=cse.ispringlearn.ru \
- *   ISPRING_CLIENT_ID=92e83f33-5572-11f0-8e7e-666906879adb
- *   ISPRING_CLIENT_SECRET=zaUmPGeLH3LkN0Khi2CeZgKriJFS5EaC-u6TPppAHBg \
- *   node sync-org.mjs
+ * Зависимостей нет (Node >= 18). Ключи берутся из .env (в репозиторий не коммитится):
+ *   node --env-file=.env sync-org.mjs
+ * Нужны: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ISPRING_CLIENT_ID, ISPRING_CLIENT_SECRET,
+ * опционально ISPRING_DOMAIN (по умолчанию cse.ispringlearn.ru).
  */
 
 function env(n) {
