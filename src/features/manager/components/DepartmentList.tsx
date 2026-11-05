@@ -1,13 +1,20 @@
 import { Box, Typography, Chip } from '@mui/material';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import { type Department, T } from '../types';
+import { AwardWindowNote } from './AwardWindowNote';
 
 interface DepartmentListProps {
   departments: Department[];
+  /** срок начисления сейчас закрыт — открыть можно только уже начисленные */
+  closed: boolean;
   onSelect: (d: Department) => void;
 }
 
-export function DepartmentList({ departments, onSelect }: DepartmentListProps) {
+export function DepartmentList({
+  departments,
+  closed,
+  onSelect,
+}: DepartmentListProps) {
   return (
     <>
       <Typography
@@ -20,9 +27,10 @@ export function DepartmentList({ departments, onSelect }: DepartmentListProps) {
       >
         Начисление баллов
       </Typography>
-      <Typography sx={{ color: T.muted, mb: 4 }}>
+      <Typography sx={{ color: T.muted, mb: 2 }}>
         Выберите подразделение.
       </Typography>
+      <AwardWindowNote />
       {departments.length === 0 ? (
         <Box
           sx={{ p: 3, borderRadius: 3, bgcolor: T.accentSoft, color: T.accent }}
@@ -37,74 +45,80 @@ export function DepartmentList({ departments, onSelect }: DepartmentListProps) {
             gap: 2,
           }}
         >
-          {departments.map((d) => (
-            <Box
-              key={d.departmentId}
-              onClick={() => onSelect(d)}
-              sx={{
-                p: 2.5,
-                borderRadius: `${T.radius}px`,
-                bgcolor: T.surface,
-                border: `1px solid ${T.line}`,
-                boxShadow: T.shadow,
-                cursor: 'pointer',
-                transition: 'transform .12s, box-shadow .12s',
-                '&:hover': {
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 10px 28px rgba(16,24,40,.10)',
-                },
-              }}
-            >
+          {departments.map((d) => {
+            const disabled = closed && !d.submittedThisMonth;
+            return (
               <Box
+                key={d.departmentId}
+                onClick={disabled ? undefined : () => onSelect(d)}
                 sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'start',
-                  gap: 1,
+                  opacity: disabled ? 0.55 : 1,
+                  p: 2.5,
+                  borderRadius: `${T.radius}px`,
+                  bgcolor: T.surface,
+                  border: `1px solid ${T.line}`,
+                  boxShadow: T.shadow,
+                  cursor: disabled ? 'default' : 'pointer',
+                  transition: 'transform .12s, box-shadow .12s',
+                  '&:hover': disabled
+                    ? {}
+                    : {
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 10px 28px rgba(16,24,40,.10)',
+                      },
                 }}
               >
-                <Typography
-                  sx={{ fontWeight: 600, fontSize: 17, lineHeight: 1.3 }}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'start',
+                    gap: 1,
+                  }}
                 >
-                  {d.name}
+                  <Typography
+                    sx={{ fontWeight: 600, fontSize: 17, lineHeight: 1.3 }}
+                  >
+                    {d.name}
+                  </Typography>
+                  {d.submittedThisMonth && (
+                    <Chip
+                      size="small"
+                      icon={<CheckRoundedIcon sx={{ fontSize: 15 }} />}
+                      label="начислено"
+                      sx={{
+                        bgcolor: T.okSoft,
+                        color: T.ok,
+                        fontWeight: 600,
+                        '& .MuiChip-icon': { color: T.ok },
+                      }}
+                    />
+                  )}
+                </Box>
+                <Typography sx={{ color: T.muted, fontSize: 13, mt: 0.5 }}>
+                  Код {d.code}
                 </Typography>
-                {d.submittedThisMonth && (
-                  <Chip
-                    size="small"
-                    icon={<CheckRoundedIcon sx={{ fontSize: 15 }} />}
-                    label="начислено"
-                    sx={{
-                      bgcolor: T.okSoft,
-                      color: T.ok,
-                      fontWeight: 600,
-                      '& .MuiChip-icon': { color: T.ok },
-                    }}
-                  />
-                )}
-              </Box>
-              <Typography sx={{ color: T.muted, fontSize: 13, mt: 0.5 }}>
-                Код {d.code}
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-                <Box>
-                  <Typography sx={{ fontSize: 12, color: T.muted }}>
-                    Сотрудников
-                  </Typography>
-                  <Typography sx={{ fontWeight: 700 }}>
-                    {d.headcount}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography sx={{ fontSize: 12, color: T.muted }}>
-                    Бюджет
-                  </Typography>
-                  <Typography sx={{ fontWeight: 700, color: T.accent }}>
-                    {d.budget}
-                  </Typography>
+                <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+                  <Box>
+                    <Typography sx={{ fontSize: 12, color: T.muted }}>
+                      Сотрудников
+                    </Typography>
+                    <Typography sx={{ fontWeight: 700 }}>
+                      {d.headcount}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography sx={{ fontSize: 12, color: T.muted }}>
+                      Бюджет
+                    </Typography>
+                    <Typography sx={{ fontWeight: 700, color: T.accent }}>
+                      {d.budget}
+                    </Typography>
+                  </Box>
                 </Box>
               </Box>
-            </Box>
-          ))}
+            );
+          })}
         </Box>
       )}
     </>

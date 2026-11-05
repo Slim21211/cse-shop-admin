@@ -16,6 +16,8 @@ type Indicator = { pct: number; points: number; desc: string };
 type Settings = {
   maxPerEmployee: number;
   budgetPct: number;
+  awardStartDay: number;
+  awardEndDay: number;
   budgetPerHead: number;
   rez: Indicator;
   unknown: Indicator;
@@ -35,6 +37,8 @@ function fromRow(r: Record<string, unknown>): Settings {
   return {
     maxPerEmployee: r.max_per_employee as number,
     budgetPct: r.budget_pct as number,
+    awardStartDay: r.award_start_day as number,
+    awardEndDay: r.award_end_day as number,
     budgetPerHead: r.budget_per_head as number,
     rez: ind('rez'),
     unknown: ind('unknown'),
@@ -53,10 +57,15 @@ function toRow(b: Partial<Settings>): { row: Record<string, unknown> } | { error
   if (!Number.isInteger(b.maxPerEmployee) || (b.maxPerEmployee as number) <= 0)
     return { error: 'Максимум на сотрудника — целое число больше 0' };
   if (!isPct(b.budgetPct)) return { error: 'Бюджет — целое число от 0 до 100%' };
+  const isDay = (v: unknown) => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 28;
+  if (!isDay(b.awardStartDay) || !isDay(b.awardEndDay) || b.awardStartDay! > b.awardEndDay!)
+    return { error: 'Срок начисления — числа месяца от 1 до 28, начало не позже конца' };
 
   const row: Record<string, unknown> = {
     max_per_employee: b.maxPerEmployee,
     budget_pct: b.budgetPct,
+    award_start_day: b.awardStartDay,
+    award_end_day: b.awardEndDay,
   };
   for (const p of SIMPLE) {
     const ind = b[p];

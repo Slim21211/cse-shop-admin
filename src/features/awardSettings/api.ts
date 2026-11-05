@@ -12,6 +12,9 @@ export interface Indicator {
 
 export interface AwardSettings {
   maxPerEmployee: number;
+  /** срок начисления: с awardStartDay по awardEndDay число каждого месяца (по Москве) */
+  awardStartDay: number;
+  awardEndDay: number;
   budgetPct: number;
   budgetPerHead: number;
   rez: Indicator;
@@ -19,6 +22,60 @@ export interface AwardSettings {
   free: Indicator;
   pro: { desc: string; levels: Record<Pro, Indicator> };
   updatedAt: string;
+}
+
+const MONTHS_GEN = [
+  'января',
+  'февраля',
+  'марта',
+  'апреля',
+  'мая',
+  'июня',
+  'июля',
+  'августа',
+  'сентября',
+  'октября',
+  'ноября',
+  'декабря',
+];
+const MONTHS_ACC = [
+  'январь',
+  'февраль',
+  'март',
+  'апрель',
+  'май',
+  'июнь',
+  'июль',
+  'август',
+  'сентябрь',
+  'октябрь',
+  'ноябрь',
+  'декабрь',
+];
+
+/**
+ * Срок начисления на сегодня (по Москве, как на сервере в api/manager/award.ts).
+ * Тексты — для подсказки руководителю, сервер проверяет срок сам.
+ */
+export function awardWindow(s: AwardSettings, now = new Date()) {
+  const msk = new Date(now.getTime() + 3 * 3600 * 1000);
+  const day = msk.getUTCDate();
+  const month = msk.getUTCMonth();
+  const next = (month + 1) % 12;
+  return {
+    open: day >= s.awardStartDay && day <= s.awardEndDay,
+    notYet: day < s.awardStartDay,
+    /** «10 ноября» */
+    deadline: `${s.awardEndDay} ${MONTHS_GEN[month]}`,
+    /** «1 ноября» */
+    start: `${s.awardStartDay} ${MONTHS_GEN[month]}`,
+    /** «1 декабря» */
+    nextStart: `${s.awardStartDay} ${MONTHS_GEN[next]}`,
+    /** «10 декабря» */
+    nextDeadline: `${s.awardEndDay} ${MONTHS_GEN[next]}`,
+    /** «ноябрь» */
+    monthName: MONTHS_ACC[month],
+  };
 }
 
 async function request(init?: RequestInit): Promise<AwardSettings> {

@@ -25,6 +25,8 @@ const toPoints = (max: number, pct: number) =>
     : 0;
 
 const isPct = (v: number) => Number.isInteger(v) && v >= 0 && v <= 100;
+// до 28-го, чтобы срок существовал и в феврале (то же ограничение в базе)
+const isDay = (v: number) => Number.isInteger(v) && v >= 1 && v <= 28;
 
 // пустое поле -> NaN, чтобы не подставлять 0 молча и показать ошибку
 const parseNum = (v: string) => (v.trim() === '' ? NaN : Number(v));
@@ -143,6 +145,14 @@ export function AwardSettingsForm() {
     errors.push('Максимум на сотрудника — целое число больше 0.');
   if (!isPct(draft.budgetPct))
     errors.push('Бюджет — целое число от 0 до 100%.');
+  const windowOk =
+    isDay(draft.awardStartDay) &&
+    isDay(draft.awardEndDay) &&
+    draft.awardStartDay <= draft.awardEndDay;
+  if (!windowOk)
+    errors.push(
+      'Срок начисления — числа месяца от 1 до 28, начало не позже конца.',
+    );
   if (
     ![draft.rez, draft.unknown, draft.free, ...levels].every((i) =>
       isPct(i.pct),
@@ -233,6 +243,35 @@ export function AwardSettingsForm() {
             value={Math.min(100, Number.isFinite(total) ? total : 0)}
             color={total > 100 ? 'error' : 'primary'}
             sx={{ height: 8, borderRadius: 4 }}
+          />
+        </Box>
+      </Paper>
+
+      <Paper variant="outlined" sx={{ p: 2.5 }}>
+        <Typography variant="h6" gutterBottom>
+          Срок начисления
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Каждый месяц руководитель может начислить баллы один раз — в эти числа
+          (по Москве). Не успел — месяц пропускается. Даты подставляются в
+          подсказку руководителю и в письмо-напоминание; само письмо уходит 5-го
+          числа (дата рассылки задаётся в
+          .github/workflows/remind-managers.yml).
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          <NumberField
+            label="С"
+            value={draft.awardStartDay}
+            onChange={(v) => patch({ awardStartDay: v })}
+            suffix="числа"
+            error={!windowOk}
+          />
+          <NumberField
+            label="По (включительно)"
+            value={draft.awardEndDay}
+            onChange={(v) => patch({ awardEndDay: v })}
+            suffix="число"
+            error={!windowOk}
           />
         </Box>
       </Paper>

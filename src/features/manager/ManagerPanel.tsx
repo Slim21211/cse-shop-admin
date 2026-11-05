@@ -24,6 +24,7 @@ import {
 } from './types';
 import {
   type AwardSettings,
+  awardWindow,
   fetchAwardSettings,
 } from '../awardSettings/api';
 import { DepartmentList } from './components/DepartmentList';
@@ -114,7 +115,9 @@ export function ManagerPanel() {
     (r) => r.free && !r.comment.trim()
   );
   const awardCount = Object.values(rows).filter((r) => points(r) > 0).length;
-  const canSubmit = spent > 0 && remaining >= 0 && !invalidComment;
+  const windowOpen = !!settings && awardWindow(settings).open;
+  const canSubmit =
+    windowOpen && spent > 0 && remaining >= 0 && !invalidComment;
 
   const doSubmit = async () => {
     if (!selected) return;
@@ -145,7 +148,9 @@ export function ManagerPanel() {
           errorText:
             data.error === 'already submitted this month'
               ? 'В этом месяце по отделу уже начислено.'
-              : `Ошибка: ${data.error || res.status}`,
+              : String(data.error).startsWith('outside award window')
+                ? 'Срок начисления в этом месяце закончился — следующее начисление в следующем месяце.'
+                : `Ошибка: ${data.error || res.status}`,
         });
       else {
         setSubmit({
@@ -205,7 +210,11 @@ export function ManagerPanel() {
     );
   if (!selected)
     return page(
-      <DepartmentList departments={departments} onSelect={openDepartment} />
+      <DepartmentList
+        departments={departments}
+        closed={!windowOpen}
+        onSelect={openDepartment}
+      />
     );
   if (selected.submittedThisMonth)
     return page(

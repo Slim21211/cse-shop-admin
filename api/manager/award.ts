@@ -6,6 +6,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 // Баллы за показатели — из award_settings (см. sql/award_settings.sql), уже посчитанные базой.
 type Weights = {
   maxPerEmployee: number;
+  awardStartDay: number;
+  awardEndDay: number;
   budgetPerHead: number;
   rez: number;
   pro: Record<string, number>;
@@ -17,7 +19,7 @@ async function loadWeights(sb: SupabaseClient): Promise<Weights> {
   const { data, error } = await sb
     .from('award_settings')
     .select(
-      'max_per_employee, budget_per_head, rez_points, pro_a_points, pro_b_points, pro_v_points, pro_g_points, pro_d_points, unknown_points, free_points'
+      'max_per_employee, award_start_day, award_end_day, budget_per_head, rez_points, pro_a_points, pro_b_points, pro_v_points, pro_g_points, pro_d_points, unknown_points, free_points'
     )
     .eq('id', true)
     .maybeSingle();
@@ -25,6 +27,8 @@ async function loadWeights(sb: SupabaseClient): Promise<Weights> {
   if (!data) throw new Error('award_settings не заполнены');
   return {
     maxPerEmployee: data.max_per_employee,
+    awardStartDay: data.award_start_day,
+    awardEndDay: data.award_end_day,
     budgetPerHead: data.budget_per_head,
     rez: data.rez_points,
     pro: {
@@ -72,6 +76,10 @@ function xmlEscape(s: string) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+// число месяца по Москве — так же, как monthKey
+function moscowDay(): number {
+  return new Date(Date.now() + 3 * 3600 * 1000).getUTCDate();
 }
 function monthKey(): string {
   const d = new Date(Date.now() + 3 * 3600 * 1000);
@@ -272,6 +280,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .eq('period_month', month)
       .maybeSingle();
     if (existing) return await pushPending(sb, existing.id, w, res);
+
+    // новое начисление — только в срок; дослать уже созданное (pushPending выше) можно всегда
+    const day = moscowDay();
+    if (day < w.awardStartDay || day > w.awardEndDay)
+      return res.status(400).json({
+        error: `outside award window: ${w.awardStartDay}-${w.awardEndDay}`,
+      });
 
     if (!Array.isArray(awards) || awards.length === 0)
       return res.status(400).json({ error: 'no awards' });

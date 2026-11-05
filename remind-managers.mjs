@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /**
  * Напоминание руководителям: в этом месяце (по Москве) ещё не начислены баллы.
+ * Срок начисления (award_settings.award_start_day..award_end_day) подставляется в текст;
+ * вне срока письма не шлются — начислить всё равно уже нельзя.
  * Берёт отделы из available_departments, у которых нет award_periods за текущий месяц,
  * группирует по руководителю (org_departments.supervisor_ispring_id) и шлёт одно письмо
  * на человека со списком его отделов. Письма — с той же почты, что коды входа магазина.
@@ -34,9 +36,14 @@ const SHOP_ACCOUNT_URL = 'https://cse-shop.ru/account';
 const SHOP_EMAIL = 'giftshop@cse.ru';
 const MAIL_FROM = `"Магазин подарков КСЭ" <${SHOP_EMAIL}>`;
 
+const MSK = new Date(Date.now() + 3 * 3600 * 1000); // Москва UTC+3, как в api/manager/award.ts
+const MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+const MONTHS_ACC = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
+  'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
+
 function monthKey() {
-  const d = new Date(Date.now() + 3 * 3600 * 1000); // Москва UTC+3, как в api/manager/award.ts
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+  return `${MSK.getUTCFullYear()}-${String(MSK.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 async function select(table, query) {
@@ -56,31 +63,33 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
-function buildMail(firstName, departments) {
+function buildMail(firstName, departments, win) {
   const hello = firstName ? `Здравствуйте, ${firstName}!` : 'Здравствуйте!';
   const many = departments.length > 1;
   const lead = many
     ? 'В этом месяце ещё не начислены баллы сотрудникам ваших подразделений:'
     : 'В этом месяце ещё не начислены баллы сотрудникам вашего подразделения:';
+  const deadline = `Не забудьте начислить до ${win.deadline} включительно: после этого ${win.month} будет пропущен, и начислить получится только в следующем месяце — с ${win.nextStart}.`;
   const text = [
     hello,
     '',
     lead,
     ...departments.map((d) => `• ${d}`),
     '',
+    deadline,
+    '',
     `Начислить можно в личном кабинете магазина подарков: ${SHOP_ACCOUNT_URL} → «Начислить баллы».`,
-    'Неиспользованный бюджет отдела сгорает в конце месяца.',
     '',
     'Магазин подарков КСЭ',
   ].join('\n');
   const html = `<p>${escapeHtml(hello)}</p>
 <p>${escapeHtml(lead)}</p>
 <ul>${departments.map((d) => `<li>${escapeHtml(d)}</li>`).join('')}</ul>
-<p>Начислить можно в <a href="${SHOP_ACCOUNT_URL}">личном кабинете магазина подарков</a> → «Начислить баллы».<br>
-Неиспользованный бюджет отдела сгорает в конце месяца.</p>
+<p><b>${escapeHtml(deadline)}</b></p>
+<p>Начислить можно в <a href="${SHOP_ACCOUNT_URL}">личном кабинете магазина подарков</a> → «Начислить баллы».</p>
 <p>Магазин подарков КСЭ</p>`;
   return {
-    subject: 'Напоминание: начислите баллы сотрудникам до конца месяца',
+    subject: `Напоминание: начислите баллы сотрудникам до ${win.deadline}`,
     text,
     html,
   };
@@ -89,6 +98,20 @@ function buildMail(firstName, departments) {
 (async () => {
   const month = monthKey();
   console.log(`Напоминания за ${month}${DRY_RUN ? ' (DRY_RUN)' : ''}${TEST_TO ? ' (TEST_TO)' : ''}`);
+
+  const [settings] = await select('award_settings', 'select=award_start_day,award_end_day&id=eq.true');
+  if (!settings) throw new Error('award_settings не заполнены');
+  const day = MSK.getUTCDate();
+  if (day < settings.award_start_day || day > settings.award_end_day)
+    return console.log(
+      `Сегодня ${day}-е — вне срока начисления (${settings.award_start_day}–${settings.award_end_day}), письма не шлю.`
+    );
+  const mi = MSK.getUTCMonth();
+  const win = {
+    deadline: `${settings.award_end_day} ${MONTHS_GEN[mi]}`,
+    nextStart: `${settings.award_start_day} ${MONTHS_GEN[(mi + 1) % 12]}`,
+    month: MONTHS_ACC[mi],
+  };
 
   const allowed = (await select('available_departments', 'select=department_id')).map(
     (a) => a.department_id
@@ -163,7 +186,7 @@ function buildMail(firstName, departments) {
       await transporter.sendMail({
         from: MAIL_FROM,
         to: TEST_TO || m.email,
-        ...buildMail(m.first_name, departments.sort()),
+        ...buildMail(m.first_name, departments.sort(), win),
       });
       sent++;
     } catch (e) {
