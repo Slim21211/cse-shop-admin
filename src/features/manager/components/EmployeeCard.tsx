@@ -8,6 +8,7 @@ import {
 } from '../types';
 import { Toggle } from './Toggle';
 import { Segmented } from './Segmented';
+import { PointsInput } from './PointsInput';
 import { IndicatorsInfo, type IndicatorKey } from './IndicatorsInfo';
 
 interface EmployeeCardProps {
@@ -151,13 +152,21 @@ export function EmployeeCard({
               minWidth: 0,
             }}
           >
-            <Toggle checked={row.rez} onChange={(v) => onUpdate({ rez: v })} />
             <Typography sx={{ fontSize: 14, fontWeight: 500, color: T.ink }}>
               Результативность
             </Typography>
             <IndicatorsInfo indicator="rez" />
           </Box>
-          <ValueBadge points={s.rez.points} on={row.rez} />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <PointsInput
+              value={row.rez}
+              max={s.rez.points}
+              onChange={(v) => onUpdate({ rez: v })}
+            />
+            <Typography sx={{ fontSize: 12, color: T.muted }} noWrap>
+              из {s.rez.points}
+            </Typography>
+          </Box>
         </Box>
 
         {/* проактивность */}

@@ -278,7 +278,7 @@ export function AwardSettingsForm() {
 
       <IndicatorSection
         title="Результативность"
-        hint="Показывается руководителю по кнопке «?» рядом с показателем."
+        hint="Вес задаёт максимум: руководитель вводит любое целое число баллов от 0 до него. Подсказка показывается по кнопке «?» рядом с показателем."
         value={draft.rez}
         max={max}
         onChange={patchIndicator('rez')}

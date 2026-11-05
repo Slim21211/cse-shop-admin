@@ -44,7 +44,8 @@ async function loadWeights(sb: SupabaseClient): Promise<Weights> {
 }
 
 type Indicators = {
-  rez?: boolean;
+  /** баллы за результативность, 0..rez_points (в старых записях award_entries — true) */
+  rez?: number | boolean;
   pro?: string;
   unknown?: boolean;
   free?: boolean;
@@ -52,7 +53,7 @@ type Indicators = {
 
 function calcPoints(ind: Indicators, w: Weights): number {
   let p = 0;
-  if (ind.rez) p += w.rez;
+  if (typeof ind.rez === 'number') p += ind.rez;
   p += w.pro[ind.pro ?? ''] ?? 0;
   if (ind.unknown) p += w.unknown;
   if (ind.free) p += w.free;
@@ -318,6 +319,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res
           .status(400)
           .json({ error: 'comment required for free indicator' });
+      if (
+        ind.rez !== undefined &&
+        !(Number.isInteger(ind.rez) && (ind.rez as number) >= 0 && (ind.rez as number) <= w.rez)
+      )
+        return res
+          .status(400)
+          .json({ error: `bad rez value: ${ind.rez} (0..${w.rez})` });
       if (ind.pro && !(ind.pro in w.pro))
         return res.status(400).json({ error: `bad pro value: ${ind.pro}` });
       const points = calcPoints(ind, w);

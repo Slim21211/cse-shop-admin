@@ -49,7 +49,8 @@ export interface Employee {
 }
 
 export interface Row {
-  rez: boolean;
+  /** баллы за результативность: целое от 0 до award_settings.rez_points */
+  rez: number;
   pro: Pro;
   unknown: boolean;
   free: boolean;
@@ -68,7 +69,7 @@ export function useAwardSettings(): AwardSettings {
 }
 
 export const emptyRow = (): Row => ({
-  rez: false,
+  rez: 0,
   pro: 'А',
   unknown: false,
   free: false,
@@ -76,7 +77,7 @@ export const emptyRow = (): Row => ({
 });
 
 export const rowPoints = (r: Row, s: AwardSettings) =>
-  (r.rez ? s.rez.points : 0) +
+  Math.min(r.rez, s.rez.points) +
   s.pro.levels[r.pro].points +
   (r.unknown ? s.unknown.points : 0) +
   (r.free ? s.free.points : 0);

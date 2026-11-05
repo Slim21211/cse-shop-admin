@@ -56,7 +56,7 @@ export function IndicatorsInfo({ indicator }: { indicator: IndicatorKey }) {
                   component="span"
                   sx={{ ml: 1, fontSize: 14, color: T.accent }}
                 >
-                  +{s[indicator].points}
+                  {indicator === 'rez' ? 'до ' : ''}+{s[indicator].points}
                 </Box>
               )}
             </Typography>

@@ -18,6 +18,7 @@ import {
   useAwardSettings,
 } from '../types';
 import { Segmented } from './Segmented';
+import { PointsInput } from './PointsInput';
 import { IndicatorsInfo, type IndicatorKey } from './IndicatorsInfo';
 
 interface EmployeeTableProps {
@@ -127,7 +128,7 @@ export function EmployeeTable({
         <TableHead>
           <TableRow sx={{ bgcolor: '#FAFBFC' }}>
             <HeadCell align="left">Сотрудник</HeadCell>
-            <HeadCell sub={`+${s.rez.points}`} info="rez">
+            <HeadCell sub={`до +${s.rez.points}`} info="rez">
               Результат
             </HeadCell>
             <HeadCell sub={`до +${proMax}`} info="pro">
@@ -193,11 +194,10 @@ export function EmployeeTable({
                 </TableCell>
 
                 <TableCell align="center" sx={{ py: 1 }}>
-                  <Checkbox
-                    checked={row.rez}
-                    onChange={(_, v) => onUpdate(e.ispringUserId, { rez: v })}
-                    checkedIcon={<CheckRoundedIcon />}
-                    sx={checkSx}
+                  <PointsInput
+                    value={row.rez}
+                    max={s.rez.points}
+                    onChange={(v) => onUpdate(e.ispringUserId, { rez: v })}
                   />
                 </TableCell>
 
