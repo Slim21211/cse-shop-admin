@@ -17,6 +17,8 @@ export type Product = {
   image_url?: string | null; // Для обратной совместимости
   image_urls?: string[] | null; // НОВОЕ: массив изображений
   is_gift: boolean;
+  /** штук в корзинах пользователей (считает api/products.ts) */
+  in_cart?: number;
 };
 
 export type OrderItem = {
@@ -58,6 +60,15 @@ async function apiRequest<T>(url: string, init?: RequestInit): Promise<ApiResult
           data: { message: body.message || body.error || `HTTP ${r.status}` },
         },
       };
+}
+
+/** Текст ошибки удаления товара (например, если он ещё лежит в корзинах). */
+export function deleteErrorText(error: unknown): string {
+  return (
+    'Не удалось удалить: ' +
+    ((error as { data?: { message?: string } })?.data?.message ||
+      'попробуйте ещё раз')
+  );
 }
 
 // Загрузка картинки товара: сервер выдаёт подписанную ссылку на конкретный путь в бакете
@@ -116,6 +127,16 @@ export const productsApi = createApi({
       invalidatesTags: ['Product'],
     }),
 
+    // убрать товар из корзин всех пользователей (иначе его нельзя удалить)
+    clearProductFromCarts: b.mutation<{ removed: number }, number>({
+      queryFn: (id) =>
+        apiRequest<{ removed: number }>('/api/products', {
+          method: 'POST',
+          body: JSON.stringify({ action: 'clear-cart', id }),
+        }),
+      invalidatesTags: ['Product'],
+    }),
+
     deleteProduct: b.mutation<void, number>({
       queryFn: (id) =>
         apiRequest<void>('/api/products', {
@@ -155,6 +176,7 @@ export const {
   useGetGiftProductsQuery,
   useAddProductMutation,
   useDeleteProductMutation,
+  useClearProductFromCartsMutation,
   useGetOrdersQuery,
   useCancelOrderMutation,
   useUpdateProductRemainsMutation,

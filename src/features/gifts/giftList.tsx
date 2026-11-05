@@ -10,12 +10,19 @@ import {
   useGetGiftProductsQuery,
   useDeleteProductMutation,
   pluralizePoints,
+  deleteErrorText,
 } from '../products/api';
 import styles from './giftList.module.scss';
+import { InCartInfo } from '../products/InCartInfo';
 
 export const GiftsList = () => {
   const { data, isLoading } = useGetGiftProductsQuery();
   const [deleteProduct] = useDeleteProductMutation();
+
+  const handleDelete = async (id: number) => {
+    const result = await deleteProduct(id);
+    if ('error' in result) alert(deleteErrorText(result.error));
+  };
 
   if (isLoading) {
     return (
@@ -83,8 +90,9 @@ export const GiftsList = () => {
                   <Typography component="span">{pluralPrice}</Typography>
                 </Box>
                 <Typography>Остаток: {gift.remains}</Typography>
+                <InCartInfo product={gift} />
                 <Box sx={{ mt: 1 }}>
-                  <Button color="error" onClick={() => deleteProduct(gift.id)}>
+                  <Button color="error" onClick={() => handleDelete(gift.id)}>
                     Удалить
                   </Button>
                 </Box>

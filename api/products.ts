@@ -97,7 +97,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .order('price', { ascending: false })
         .order('id', { ascending: true });
       if (error) return res.status(500).json({ message: error.message });
-      return res.status(200).json(data);
+
+      // сколько штук каждого товара лежит в корзинах пользователей: пока товар в корзине,
+      // его нельзя удалить (внешний ключ cart_items.product_id), а корзина показывает старую цену
+      const ids = (data || []).map((p: { id: number }) => p.id);
+      const { data: cart, error: cartError } = ids.length
+        ? await sb.from('cart_items').select('product_id, quantity').in('product_id', ids)
+        : { data: [], error: null };
+      if (cartError) return res.status(500).json({ message: cartError.message });
+      const inCart = new Map<number, number>();
+      for (const c of (cart || []) as { product_id: number; quantity: number }[])
+        inCart.set(c.product_id, (inCart.get(c.product_id) || 0) + c.quantity);
+      return res
+        .status(200)
+        .json((data || []).map((p: { id: number }) => ({ ...p, in_cart: inCart.get(p.id) || 0 })));
     }
 
     // Подписанная ссылка: браузер загружает файл сам, но только по выданному пути
@@ -114,6 +127,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res
         .status(200)
         .json({ path: data.path, token: data.token, publicUrl: pub.publicUrl });
+    }
+
+    // убрать товар из корзин всех пользователей — перед правкой или удалением товара
+    if (req.method === 'POST' && body.action === 'clear-cart') {
+      const id = Number(body.id);
+      if (!Number.isInteger(id) || id <= 0)
+        return res.status(400).json({ message: 'нет id товара' });
+      const { data, error } = await sb
+        .from('cart_items')
+        .delete()
+        .eq('product_id', id)
+        .select('user_id');
+      if (error) return res.status(500).json({ message: error.message });
+      return res.status(200).json({ removed: (data || []).length });
     }
 
     if (req.method === 'POST') {
@@ -138,6 +165,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'DELETE') {
       const { error } = await sb.from('products').delete().eq('id', id);
+      // 23503 — на товар ссылаются строки cart_items
+      if ((error as { code?: string } | null)?.code === '23503')
+        return res
+          .status(409)
+          .json({ message: 'Товар лежит в корзинах пользователей — сначала уберите его из корзин' });
       if (error) return res.status(500).json({ message: error.message });
       return res.status(200).json({ ok: true });
     }

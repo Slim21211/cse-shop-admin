@@ -15,9 +15,11 @@ import {
   useDeleteProductMutation,
   useUpdateProductRemainsMutation,
   uploadProductImage,
+  deleteErrorText,
 } from './api';
 import plural from 'plural-ru';
 import styles from './productList.module.scss';
+import { InCartInfo } from './InCartInfo';
 
 export const ProductsList = () => {
   const { data, isLoading } = useGetMerchProductsQuery();
@@ -38,6 +40,11 @@ export const ProductsList = () => {
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDelete = async (id: number) => {
+    const result = await deleteProduct(id);
+    if ('error' in result) alert(deleteErrorText(result.error));
+  };
 
   const handleOpen = (product: any) => {
     setSelectedProduct(product);
@@ -226,9 +233,10 @@ export const ProductsList = () => {
                   <Typography component="span">{pluralPrice}</Typography>
                 </Box>
                 <Typography>Остаток: {p.remains}</Typography>
+                <InCartInfo product={p} />
               </CardContent>
               <Box className={styles.buttonWrapper}>
-                <Button color="error" onClick={() => deleteProduct(p.id)}>
+                <Button color="error" onClick={() => handleDelete(p.id)}>
                   Удалить
                 </Button>
                 <Button onClick={() => handleOpen(p)}>Изменить</Button>
