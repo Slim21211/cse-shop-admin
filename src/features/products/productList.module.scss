@@ -67,6 +67,9 @@
 
 .content {
   flex-grow: 1;
+  // колонкой, чтобы строку «В корзинах» можно было прижать к низу (margin-top: auto)
+  display: flex;
+  flex-direction: column;
   padding: 16px;
 }
 

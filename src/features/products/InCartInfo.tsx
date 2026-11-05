@@ -26,7 +26,14 @@ export function InCartInfo({ product }: { product: Product }) {
   };
 
   return (
-    <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+    // mt: auto — прижать к низу карточки (родитель — flex-колонка), pt — отступ от описания
+    <Box
+      display="flex"
+      alignItems="center"
+      gap={1}
+      flexWrap="wrap"
+      sx={{ mt: 'auto', pt: 1.5 }}
+    >
       <Typography color={count ? 'warning.main' : 'text.secondary'}>
         В корзинах: {count} шт.
       </Typography>

@@ -50,8 +50,12 @@ export const GiftsList = () => {
 
         return (
           <div key={gift.id} className={styles.card}>
-            <Card>
-              <CardContent>
+            <Card
+              sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+            >
+              <CardContent
+                sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}
+              >
                 <Typography variant="h6" noWrap>
                   {gift.name}
                 </Typography>
